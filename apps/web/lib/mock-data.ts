@@ -11,6 +11,8 @@ import type {
   MatrixCell,
   DrugFamily,
   PolicyDiff,
+  SimulationCase,
+  SimulationResult,
 } from './types'
 
 // ── Drug families ─────────────────────────────────────────────────────────────
@@ -1492,6 +1494,244 @@ export function buildMockMatrix(): CoverageMatrixData {
 
 export function getPolicyById(id: string): PolicyDNA | undefined {
   return MOCK_POLICIES.find((p) => p.id === id)
+}
+
+// ── Mock simulation results for Case Review demo ──────────────────────────────
+
+export function buildMockSimulationResults(c: SimulationCase): SimulationResult[] {
+  const hasPrior = c.prior_therapies.length > 0
+  const hasTwoPrior = c.prior_therapies.length >= 2
+  const isRituximab = c.drug_key === 'rituximab'
+  const isHospital = c.care_setting === 'hospital'
+
+  // Base fit scores adjusted by case completeness
+  const priorBonus = hasPrior ? 18 : 0
+  const twoPriorBonus = hasTwoPrior ? 8 : 0
+
+  type PayerConfig = {
+    payer_id: string
+    payer_name: string
+    base_fit: number
+    coverage_status: SimulationResult['coverage_status']
+    blockers: SimulationResult['blockers']
+    next_best_action: string
+    pa_summary: string
+    evidence_checklist: string[]
+  }
+
+  const payers: PayerConfig[] = [
+    {
+      payer_id: 'aetna',
+      payer_name: 'Aetna',
+      base_fit: isRituximab ? 62 : 74,
+      coverage_status: hasPrior ? 'conditional' : 'conditional',
+      blockers: [
+        ...(!hasPrior ? [{
+          type: 'missing_prior_failure' as const,
+          severity: 'hard' as const,
+          description: isRituximab
+            ? 'Prior anti-TNF failure required — no qualifying agents documented'
+            : 'Conventional DMARD failure required before biologic coverage',
+          resolution: isRituximab
+            ? 'Document that patient trialed and failed at least one anti-TNF biologic (e.g., adalimumab, etanercept)'
+            : 'Document trial and failure of methotrexate or equivalent DMARD at adequate dose and duration',
+          citation: null,
+        }] : []),
+        ...(isHospital ? [{
+          type: 'wrong_care_setting' as const,
+          severity: 'soft' as const,
+          description: 'Hospital outpatient setting requires site-of-care justification',
+          resolution: 'Provide attestation that infusion center setting is not clinically appropriate or accessible',
+          citation: null,
+        }] : []),
+      ],
+      next_best_action: hasPrior
+        ? 'Submit PA with step therapy documentation and specialist chart notes. Aetna typically responds within 3 business days for standard PA requests.'
+        : 'Document prior DMARD failure before initiating PA. Attach chart notes showing adequate dose and duration of prior therapy.',
+      pa_summary: `Aetna ${isRituximab ? 'CPB #0436' : 'CPB #0461'} requires PA for all biologics. ${hasPrior ? 'Step therapy requirement appears met based on documented prior therapies.' : 'Step therapy requirement is not yet met — at least one qualifying prior therapy must be documented.'} Diagnosis of ${c.diagnosis || 'the stated indication'} is a covered indication under commercial plan.`,
+      evidence_checklist: [
+        'Completed PA request form (Aetna J-code PA)',
+        hasPrior ? `Prior therapy failure documentation: ${c.prior_therapies.join(', ')}` : 'Prior DMARD trial documentation (date started, dose, duration, reason for stopping)',
+        'Specialist progress note confirming diagnosis and treatment plan',
+        c.icd10_code ? `ICD-10 code ${c.icd10_code} on all claim forms` : 'ICD-10 code on all claim forms',
+        isRituximab ? 'HBsAg and anti-HBc screening results' : 'TB screening (PPD or IGRA) within 3 months',
+        'Proposed dosing regimen and infusion schedule',
+      ],
+    },
+    {
+      payer_id: 'uhc',
+      payer_name: 'UnitedHealthcare',
+      base_fit: isRituximab ? 55 : 68,
+      coverage_status: 'conditional',
+      blockers: [
+        ...(!hasPrior ? [{
+          type: 'missing_prior_failure' as const,
+          severity: 'hard' as const,
+          description: 'Step therapy documentation required — no prior agent failure on file',
+          resolution: 'Attach clinical notes documenting trial and failure of required step therapy agents',
+          citation: null,
+        }] : []),
+        ...(!c.specialty ? [{
+          type: 'specialist_required' as const,
+          severity: 'soft' as const,
+          description: 'Prescribing specialty not specified — rheumatologist or gastroenterologist required',
+          resolution: 'Confirm prescriber specialty on PA submission; UHC may require specialist attestation',
+          citation: null,
+        }] : []),
+        ...(isRituximab && !hasPrior ? [{
+          type: 'step_therapy_required' as const,
+          severity: 'hard' as const,
+          description: 'UHC Biosimilar Initiative: biosimilar must be tried before originator (Rituxan)',
+          resolution: 'Use Truxima or Ruxience as first-line rituximab; originator requires biosimilar failure documentation',
+          citation: null,
+        }] : []),
+      ],
+      next_best_action: hasPrior && c.specialty
+        ? 'File PA through UHC Link portal. Include specialty attestation and biosimilar preference statement.'
+        : 'Gather missing documentation before filing. UHC has strict completeness requirements — incomplete submissions are automatically pended.',
+      pa_summary: `UHC Medical Drug Policy ${isRituximab ? 'D0035' : 'D0079'} covers this agent for ${c.diagnosis || 'the stated indication'} with PA. ${hasPrior ? 'Prior therapy documentation supports step therapy clearance.' : 'Step therapy requirements must be satisfied before PA approval is likely.'} UHC Biosimilar Initiative may require biosimilar trial first.`,
+      evidence_checklist: [
+        'UHC PA form (submit via UHC Link portal)',
+        hasPrior ? 'Step therapy attestation with dates, doses, and outcomes' : 'Step therapy documentation (required before PA submission)',
+        'Prescriber specialty credentials on file with UHC',
+        'Biosimilar consideration statement or contraindication documentation',
+        isRituximab ? 'HBV labs (HBsAg, anti-HBc, CBC)' : 'IGRA/PPD tuberculosis screening',
+        'Diagnosis confirmation with clinical evidence',
+      ],
+    },
+    {
+      payer_id: 'bsca',
+      payer_name: 'Blue Shield CA',
+      base_fit: isRituximab ? 58 : 70,
+      coverage_status: isHospital ? 'conditional' : 'conditional',
+      blockers: [
+        ...(isHospital ? [{
+          type: 'wrong_care_setting' as const,
+          severity: 'hard' as const,
+          description: 'Blue Shield CA restricts hospital outpatient infusions — requires non-hospital preferred site',
+          resolution: 'Redirect infusion to contracted infusion center. Hospital requires site-of-care exception with clinical justification.',
+          citation: null,
+        }] : []),
+        ...(!hasPrior ? [{
+          type: 'missing_prior_failure' as const,
+          severity: 'hard' as const,
+          description: 'Conventional therapy failure required prior to biologic authorization',
+          resolution: 'Submit chart notes showing prior trial at therapeutic dose for minimum required duration',
+          citation: null,
+        }] : []),
+      ],
+      next_best_action: hasPrior && !isHospital
+        ? 'Submit PA to Blue Shield CA via Availity. Standard turnaround is 5–7 business days for non-urgent requests.'
+        : isHospital
+          ? 'Arrange infusion center referral before filing PA. Hospital setting will be denied without exception documentation.'
+          : 'Complete step therapy documentation first. Blue Shield CA does not approve PAs for incomplete submissions.',
+      pa_summary: `Blue Shield CA covers ${isRituximab ? 'rituximab' : 'infliximab'} for ${c.diagnosis || 'the stated indication'} under the medical benefit with PA. ${isHospital ? 'Site of care restriction applies — non-hospital infusion center required.' : 'Infusion center setting is appropriate.'} ${hasPrior ? 'Prior therapy criteria appear met.' : 'Prior therapy documentation must be provided.'}`,
+      evidence_checklist: [
+        'Blue Shield CA PA form (Availity portal)',
+        hasPrior ? 'Prior therapy failure summary (agent, dose, dates, outcome)' : 'Prior therapy documentation (required)',
+        isHospital ? 'Site-of-care exception request with clinical justification' : 'Infusion center agreement/contract on file',
+        'Specialist referral note',
+        isRituximab ? 'HBV serology (required before first infusion)' : 'TB test results',
+        'Patient weight (for weight-based dosing verification)',
+      ],
+    },
+    {
+      payer_id: 'anthem',
+      payer_name: 'Anthem',
+      base_fit: isRituximab ? 72 : 82,
+      coverage_status: hasPrior ? 'conditional' : 'conditional',
+      blockers: [
+        ...(!hasPrior && !isRituximab ? [{
+          type: 'missing_prior_failure' as const,
+          severity: 'soft' as const,
+          description: 'Conventional DMARD failure preferred but not always strictly required for all indications',
+          resolution: 'Include any prior therapy history even if short-duration; Anthem sometimes grants exceptions with specialist letter',
+          citation: null,
+        }] : []),
+        ...(!hasPrior && isRituximab ? [{
+          type: 'missing_prior_failure' as const,
+          severity: 'hard' as const,
+          description: 'Anti-TNF failure required for RA indication',
+          resolution: 'Document prior anti-TNF trial. Anthem accepts adalimumab, etanercept, certolizumab, or golimumab as qualifying agents.',
+          citation: null,
+        }] : []),
+      ],
+      next_best_action: hasPrior
+        ? 'Anthem PA submission via Carelon Medical Benefits Management portal. Anthem typically processes within 2–3 days with complete documentation.'
+        : 'Submit with available documentation; include specialist letter explaining clinical urgency if step therapy has not yet been completed.',
+      pa_summary: `Anthem ${isRituximab ? 'Medical Policy BTR0006' : 'Medical Policy BTR0004'} covers ${isRituximab ? 'rituximab' : 'infliximab'} with PA for approved indications. ${hasPrior ? 'Patient documentation appears to meet prior therapy requirements.' : 'Prior therapy history should be included; Anthem may issue peer-to-peer review request.'} Renewal PA required every 12 months.`,
+      evidence_checklist: [
+        'Carelon portal PA submission',
+        hasPrior ? 'Prior therapy summary (strongest evidence: chart notes with dose and duration)' : 'Specialist letter explaining treatment rationale',
+        'Current diagnosis documentation with clinical severity indicators',
+        isRituximab ? 'Anti-TNF failure documentation (required for RA)' : 'Disease activity score or clinical measure (e.g., DAS28, CDAI)',
+        'HBV and TB screening results',
+        'Infusion site confirmation',
+      ],
+    },
+    {
+      payer_id: 'cigna',
+      payer_name: 'Cigna',
+      base_fit: isRituximab ? 48 : 58,
+      coverage_status: 'nonpreferred',
+      blockers: [
+        {
+          type: 'step_therapy_required' as const,
+          severity: 'hard' as const,
+          description: isRituximab
+            ? 'Cigna requires biosimilar rituximab (Truxima/Ruxience) before originator; originator requires biosimilar failure documentation'
+            : 'Cigna Biosimilar-First policy: biosimilar infliximab must be tried and failed before Remicade is covered',
+          resolution: isRituximab
+            ? 'Prescribe Truxima or Ruxience as first-line. If prescribing originator, submit biosimilar failure or contraindication documentation.'
+            : 'Prescribe Inflectra, Renflexis, or Avsola as first-line. Document failure before authorizing Remicade.',
+          citation: null,
+        },
+        ...(!hasPrior ? [{
+          type: 'missing_prior_failure' as const,
+          severity: 'hard' as const,
+          description: 'Conventional therapy step not documented',
+          resolution: 'Submit conventional therapy history. Cigna requires this in addition to biosimilar-first requirement.',
+          citation: null,
+        }] : []),
+        ...(isHospital ? [{
+          type: 'wrong_care_setting' as const,
+          severity: 'hard' as const,
+          description: 'Cigna Site-of-Care policy: hospital outpatient setting denied; non-hospital required',
+          resolution: 'Transfer infusion to contracted non-hospital site. Cigna will deny hospital outpatient claims without site-of-care exception.',
+          citation: null,
+        }] : []),
+      ],
+      next_best_action: hasPrior && !isHospital
+        ? 'Submit biosimilar PA first. Once biosimilar is authorized, proceed with infusion. If biosimilar has failed or is contraindicated, submit originator PA with biosimilar failure documentation.'
+        : 'Multiple blockers present. Resolve site of care and step therapy issues before PA submission to avoid denial.',
+      pa_summary: `Cigna ${isRituximab ? 'Coverage Policy MMR1006' : 'Coverage Policy MMR1005'} has the most restrictive biosimilar-first requirements among the five payers. ${isRituximab ? 'Biosimilar rituximab is required unless contraindicated or previously failed.' : 'Biosimilar infliximab must be tried and failed before originator Remicade is covered.'} ${isHospital ? 'Hospital outpatient site is also restricted.' : ''} Approval requires both biosimilar compliance and prior therapy documentation.`,
+      evidence_checklist: [
+        'Cigna PA form (eviCore platform)',
+        isRituximab ? 'Biosimilar rituximab trial or contraindication documentation' : 'Biosimilar infliximab trial or contraindication documentation',
+        hasPrior ? 'Prior conventional therapy failure (dose, duration, outcome)' : 'Prior conventional therapy documentation (required)',
+        isHospital ? 'Site-of-care exception request (hospital outpatient)' : 'Contracted infusion center confirmation',
+        'HBV screening (required before authorization)',
+        'TB screening within 6 months',
+        'Specialist attestation confirming diagnosis and treatment appropriateness',
+      ],
+    },
+  ]
+
+  return payers.map((p, idx) => {
+    const fit = Math.min(100, Math.max(10, p.base_fit + priorBonus + twoPriorBonus - (isHospital ? 8 : 0)))
+    return {
+      case_id: `mock_${p.payer_id}_${c.drug_key}_${idx}`,
+      drug_key: c.drug_key,
+      payer_id: p.payer_id,
+      payer_name: p.payer_name,
+      coverage_status: p.coverage_status,
+      blockers: p.blockers,
+      fit_score: fit,
+      next_best_action: p.next_best_action,
+      pa_summary: p.pa_summary,
+      evidence_checklist: p.evidence_checklist,
+    }
+  }).sort((a, b) => b.fit_score - a.fit_score)
 }
 
 // ── Sample policy diffs for Change Radar ─────────────────────────────────────

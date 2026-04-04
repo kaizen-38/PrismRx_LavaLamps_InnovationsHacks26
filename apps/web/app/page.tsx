@@ -20,22 +20,22 @@ import {
 const PAIN_CARDS = [
   {
     q: 'Which plans cover this drug?',
-    a: 'Cross-payer coverage matrix with status, friction score, and effective date.',
-    tag: 'Coverage Matrix',
+    a: 'Compare payer coverage side by side — status, access burden, and effective date for each plan.',
+    tag: 'Coverage',
     accent: '#2B50FF',
     bg: '#ECF1FF',
   },
   {
     q: 'What criteria block approval?',
     a: 'Step therapy, diagnosis gates, prior treatment requirements — all extracted from source policy text.',
-    tag: 'Case Simulator',
+    tag: 'Case Review',
     accent: '#C2410C',
     bg: '#FFF1EB',
   },
   {
     q: 'What changed this quarter?',
     a: 'Semantic diff between policy versions. Tightening, loosening, and new requirements shown with citations.',
-    tag: 'Change Radar',
+    tag: 'Changes',
     accent: '#0F766E',
     bg: '#EAF8F4',
   },
@@ -45,20 +45,20 @@ const SHOWCASE_STEPS = [
   {
     step: '01',
     heading: 'Compare coverage across all payers',
-    body: 'A single view of every payer\'s stance on a drug family — coverage status, prior auth flag, friction score, and effective date.',
+    body: 'A single view of every payer\'s stance on a drug family — coverage status, prior auth flag, access burden, and effective date.',
     Preview: MatrixPreview,
     accent: '#2B50FF',
     href: '/matrix',
-    cta: 'Open Coverage Matrix',
+    cta: 'Compare coverage',
   },
   {
     step: '02',
     heading: 'Surface blockers before the PA request',
-    body: 'Enter a patient scenario — drug, diagnosis, prior treatments, site of care — and instantly see what criteria are unmet and what the fastest approvable path looks like.',
+    body: 'Enter a patient case — drug, diagnosis, prior treatments, site of care — and instantly see what criteria are unmet and the clearest path to coverage.',
     Preview: SimulatorPreview,
     accent: '#C2410C',
     href: '/simulate',
-    cta: 'Try the Simulator',
+    cta: 'Review a case',
   },
   {
     step: '03',
@@ -67,7 +67,7 @@ const SHOWCASE_STEPS = [
     Preview: RadarPreview,
     accent: '#0F766E',
     href: '/radar',
-    cta: 'See Change Radar',
+    cta: 'See policy changes',
   },
 ]
 
@@ -81,7 +81,7 @@ const TRUST_ITEMS = [
 const PREVIEW_ROWS = [
   { payer: 'UnitedHealthcare', drug: 'Infliximab',   status: 'Conditional', friction: 78, sc: '#B45309', sb: '#FFF6E8' },
   { payer: 'Cigna',            drug: 'Rituximab',    status: 'Covered',     friction: 31, sc: '#0F766E', sb: '#EAF8F4' },
-  { payer: 'UPMC Health Plan', drug: 'Vedolizumab',  status: 'Conditional', friction: 61, sc: '#B45309', sb: '#FFF6E8' },
+  { payer: 'Blue Shield CA',   drug: 'Vedolizumab',  status: 'Conditional', friction: 61, sc: '#B45309', sb: '#FFF6E8' },
   { payer: 'Aetna',            drug: 'Infliximab',   status: 'Conditional', friction: 82, sc: '#C2410C', sb: '#FFF1EB' },
   { payer: 'Cigna',            drug: 'Abatacept IV', status: 'Preferred',   friction: 25, sc: '#2B50FF', sb: '#ECF1FF' },
 ]
@@ -216,23 +216,24 @@ export default function LandingPage() {
 
       {/* ══ HERO ═══════════════════════════════════════════════════════════ */}
       <section
-        className="relative flex flex-col items-start justify-center overflow-hidden"
         style={{
           minHeight: '100svh',
-          padding: '9rem 1.5rem 6rem',
+          padding: '7rem 1.5rem 4rem',
           maxWidth: '1440px',
           margin: '0 auto',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '3rem',
+          alignItems: 'center',
         }}
+        className="hero-grid"
       >
-        {/* Policy Prism — positioned right side */}
-        <PolicyPrism />
-
-        {/* Hero content — left side */}
+        {/* Hero content — left column */}
         <motion.div
           variants={stagger}
           initial="hidden"
           animate="show"
-          className="relative z-10 max-w-xl"
+          style={{ position: 'relative', zIndex: 10 }}
         >
           {/* Headline */}
           <motion.h1
@@ -272,7 +273,7 @@ export default function LandingPage() {
                 className="btn-primary inline-flex items-center gap-2 cursor-pointer"
                 {...hoverButton}
               >
-                Explore Coverage Matrix
+                Compare coverage
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </Link>
@@ -281,7 +282,7 @@ export default function LandingPage() {
                 className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
                 {...hoverButton}
               >
-                See What Changed
+                See policy changes
               </motion.span>
             </Link>
           </motion.div>
@@ -319,16 +320,14 @@ export default function LandingPage() {
           </motion.div>
         </motion.div>
 
-        {/* Scroll hint */}
+        {/* PolicyPrism — right column, no overlap */}
         <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 480 }}
         >
-          <div
-            className="w-px h-10 mx-auto"
-            style={{ background: 'linear-gradient(to bottom, var(--line-mid), transparent)' }}
-          />
+          <PolicyPrism />
         </motion.div>
       </section>
 
@@ -446,7 +445,7 @@ export default function LandingPage() {
               className="inline-flex items-center gap-1 text-body-s font-medium"
               style={{ color: 'var(--accent-blue)' }}
             >
-              Full matrix <ArrowRight className="w-3.5 h-3.5" />
+              Full coverage view <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -583,7 +582,7 @@ export default function LandingPage() {
                 style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
                 {...hoverButton}
               >
-                Start with the Matrix
+                Compare coverage
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </Link>
@@ -593,7 +592,7 @@ export default function LandingPage() {
                 style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
                 {...hoverButton}
               >
-                Try the Simulator
+                Review a case
               </motion.span>
             </Link>
           </motion.div>

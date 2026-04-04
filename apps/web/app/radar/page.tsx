@@ -78,12 +78,12 @@ export default function RadarPage() {
 
       {/* Header */}
       <motion.div variants={stagger} initial="hidden" animate="show" className="mb-12">
-        <motion.p variants={fadeUp} className="overline mb-1">Versioned Intelligence</motion.p>
+        <motion.p variants={fadeUp} className="overline mb-1">Policy Changes</motion.p>
         <motion.h1
           variants={fadeUp}
           style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 700, color: '#1D1D1F', letterSpacing: '-0.03em', marginBottom: '0.5rem' }}
         >
-          Change Radar
+          Policy Changes
         </motion.h1>
         <motion.p variants={fadeUp} style={{ fontSize: '0.9375rem', color: '#6E6E73', maxWidth: '560px', lineHeight: 1.65 }}>
           Quarter-over-quarter policy diffs — what tightened, loosened, or is new. Every change linked to its source.

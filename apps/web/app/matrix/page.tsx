@@ -69,12 +69,12 @@ export default function MatrixPage() {
               className="font-serif-display text-4xl font-medium mb-2"
               style={{ color: 'var(--ink-strong)', letterSpacing: '-0.015em' }}
             >
-              Coverage Matrix
+              Coverage Overview
               {loading && <RefreshCw className="inline-block w-5 h-5 ml-3 mb-0.5 animate-spin" style={{ color: 'var(--ink-muted)' }} />}
             </h1>
             <p className="text-sm max-w-2xl" style={{ color: 'var(--ink-body)' }}>
-              Plan-by-plan coverage posture for autoimmune / inflammatory infused biologics.
-              Click any cell to open the policy dossier with source citations.
+              Compare payer policies side by side for autoimmune / inflammatory infused biologics.
+              Click any cell to open the policy details with source citations.
             </p>
           </div>
 
@@ -140,7 +140,7 @@ export default function MatrixPage() {
       >
         <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--border-strong)' }} />
         <p>
-          Data sourced from public payer policy documents (UnitedHealthcare, Cigna, UPMC Health Plan).
+          Data sourced from public payer policy documents (Aetna, UnitedHealthcare, Blue Shield CA, Anthem, Cigna).
           Effective dates reflect the most recent available version. No real patient data. Synthetic cases only.
         </p>
       </motion.div>

@@ -16,6 +16,7 @@ import {
   buildMockMatrix,
   getPolicyById,
   MOCK_DIFFS,
+  buildMockSimulationResults,
 } from './mock-data'
 
 const API_BASE =
@@ -205,7 +206,7 @@ export async function runSimulation(
     if (result.ok) return result.data
     console.warn('[api-client] simulation failed, using mock:', result.error)
   }
-  return []
+  return buildMockSimulationResults(caseData)
 }
 
 // ── Change Radar ──────────────────────────────────────────────────────────────

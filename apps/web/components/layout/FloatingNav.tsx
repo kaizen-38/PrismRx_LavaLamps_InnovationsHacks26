@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { LayoutGrid, FlaskConical, Radio } from 'lucide-react'
+import { LayoutGrid, ClipboardCheck, Radio } from 'lucide-react'
 import { spring } from '@/lib/motion/presets'
 
 const NAV_LINKS = [
-  { href: '/matrix',   label: 'Matrix',       icon: LayoutGrid   },
-  { href: '/simulate', label: 'Simulator',     icon: FlaskConical },
-  { href: '/radar',    label: 'Change Radar',  icon: Radio        },
+  { href: '/matrix',   label: 'Coverage',    icon: LayoutGrid     },
+  { href: '/simulate', label: 'Case Review', icon: ClipboardCheck },
+  { href: '/radar',    label: 'Changes',     icon: Radio          },
 ]
 
 export function FloatingNav() {
