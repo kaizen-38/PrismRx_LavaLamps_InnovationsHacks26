@@ -1,4 +1,4 @@
-import { cn, frictionLevel, FRICTION_LEVEL_COLOR, FRICTION_LEVEL_LABEL } from '@/lib/utils'
+import { cn, frictionLevel, FRICTION_LEVEL_LABEL } from '@/lib/utils'
 import type { FrictionFactors } from '@/lib/types'
 
 interface FrictionBadgeProps {
@@ -10,78 +10,66 @@ interface FrictionBadgeProps {
 }
 
 const FACTOR_LABELS: Record<keyof FrictionFactors, string> = {
-  prior_failure_count:    'Prior failures',
-  specialist_gate:        'Specialist req.',
-  lab_biomarker_gate:     'Lab/biomarker req.',
+  prior_failure_count:      'Prior failures',
+  specialist_gate:          'Specialist req.',
+  lab_biomarker_gate:       'Lab/biomarker req.',
   site_of_care_restriction: 'Site restriction',
-  renewal_complexity:     'Complex renewal',
+  renewal_complexity:       'Complex renewal',
 }
 
-export function FrictionBadge({
-  score,
-  factors,
-  size = 'sm',
-  showFactors = false,
-  className,
-}: FrictionBadgeProps) {
+// Paperlight-native semantic colors (no dark bg required)
+const LEVEL_STYLE = {
+  low:    { color: '#0F766E', bg: '#EAF8F4', ring: '#0F766E30' },
+  medium: { color: '#B45309', bg: '#FFF6E8', ring: '#B4530930' },
+  high:   { color: '#C2410C', bg: '#FFF1EB', ring: '#C2410C30' },
+}
+
+export function FrictionBadge({ score, factors, size = 'sm', showFactors = false, className }: FrictionBadgeProps) {
   const level = frictionLevel(score)
-  const colorClass = FRICTION_LEVEL_COLOR[level]
+  const s = LEVEL_STYLE[level]
 
   return (
     <div className={cn('inline-flex flex-col gap-1', className)}>
-      {/* Score chip */}
       <span
-        className={cn(
-          'inline-flex items-center gap-1 rounded-md font-mono font-semibold ring-1 ring-inset',
-          size === 'sm' ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-1 text-sm',
-          colorClass,
-          level === 'low'    && 'ring-emerald-500/30',
-          level === 'medium' && 'ring-amber-500/30',
-          level === 'high'   && 'ring-red-500/30',
-        )}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: size === 'sm' ? '2px 6px' : '4px 8px',
+          borderRadius: 6,
+          fontSize: size === 'sm' ? 11 : 13,
+          fontWeight: 700,
+          fontFamily: 'IBM Plex Mono, monospace',
+          color: s.color,
+          background: s.bg,
+          outline: `1px solid ${s.ring}`,
+        }}
         title={`Access Friction Score: ${score}/100 — ${FRICTION_LEVEL_LABEL[level]}`}
       >
-        {/* Mini bar */}
         <span className="relative flex-shrink-0 w-2.5 h-2.5">
           <FrictionGlyph score={score} level={level} />
         </span>
         {score}
       </span>
 
-      {/* Factor breakdown — shown in drawer / expanded views */}
-      {showFactors && factors && (
-        <FrictionFactorList factors={factors} />
-      )}
+      {showFactors && factors && <FrictionFactorList factors={factors} />}
     </div>
   )
 }
 
-// ── Mini glyph (3-bar meter) ──────────────────────────────────────────────────
+// ── Glyph ─────────────────────────────────────────────────────────────────────
 
 function FrictionGlyph({ score, level }: { score: number; level: 'low' | 'medium' | 'high' }) {
-  const COLORS = {
-    low:    '#10b981',
-    medium: '#f59e0b',
-    high:   '#ef4444',
-  }
-  const color = COLORS[level]
-  const bars = [
-    score > 0,
-    score > 33,
-    score > 66,
-  ]
+  const color = LEVEL_STYLE[level].color
+  const bars = [score > 0, score > 33, score > 66]
 
   return (
     <svg viewBox="0 0 10 10" fill="none" className="w-full h-full">
       {bars.map((active, i) => (
         <rect
           key={i}
-          x={i * 4}
-          y={active ? 0 : 5}
-          width={2.5}
-          height={active ? 10 : 5}
+          x={i * 4} y={active ? 0 : 5}
+          width={2.5} height={active ? 10 : 5}
           rx={0.5}
-          fill={active ? color : '#1e2d4d'}
+          fill={active ? color : '#CBD5E1'}
         />
       ))}
     </svg>
@@ -93,29 +81,22 @@ function FrictionGlyph({ score, level }: { score: number; level: 'low' | 'medium
 export function FrictionFactorList({ factors }: { factors: FrictionFactors }) {
   const activeFactors: string[] = []
 
-  if (factors.prior_failure_count > 0) {
-    activeFactors.push(
-      factors.prior_failure_count === 1
-        ? 'Prior failure: 1 required'
-        : `Prior failures: ${factors.prior_failure_count} required`,
-    )
-  }
+  if (factors.prior_failure_count > 0)
+    activeFactors.push(factors.prior_failure_count === 1 ? 'Prior failure: 1 required' : `Prior failures: ${factors.prior_failure_count} required`)
   if (factors.specialist_gate)            activeFactors.push(FACTOR_LABELS.specialist_gate)
   if (factors.lab_biomarker_gate)         activeFactors.push(FACTOR_LABELS.lab_biomarker_gate)
   if (factors.site_of_care_restriction)   activeFactors.push(FACTOR_LABELS.site_of_care_restriction)
   if (factors.renewal_complexity)         activeFactors.push(FACTOR_LABELS.renewal_complexity)
 
   if (activeFactors.length === 0) {
-    return (
-      <p className="text-xs text-slate-500 italic">No significant friction factors.</p>
-    )
+    return <p style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No significant friction factors.</p>
   }
 
   return (
-    <ul className="flex flex-col gap-1">
+    <ul style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {activeFactors.map((f) => (
-        <li key={f} className="flex items-center gap-1.5 text-xs text-slate-400">
-          <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0" />
+        <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748B' }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#CBD5E1', flexShrink: 0 }} />
           {f}
         </li>
       ))}
@@ -123,30 +104,36 @@ export function FrictionFactorList({ factors }: { factors: FrictionFactors }) {
   )
 }
 
-// ── Friction score bar (used in drawer) ───────────────────────────────────────
+// ── Score bar (used in drawer) ─────────────────────────────────────────────────
 
 export function FrictionScoreBar({ score }: { score: number }) {
   const level = frictionLevel(score)
-  const TRACK_COLOR = {
-    low:    'bg-emerald-500',
-    medium: 'bg-amber-500',
-    high:   'bg-red-500',
-  }
+  const barColor = LEVEL_STYLE[level].color
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 rounded-full bg-navy-700 overflow-hidden">
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div
+        style={{
+          flex: 1, height: 6, borderRadius: 9999,
+          background: '#E7EDF5', overflow: 'hidden',
+        }}
+      >
         <div
-          className={cn('h-full rounded-full transition-all duration-500', TRACK_COLOR[level])}
-          style={{ width: `${Math.min(score, 100)}%` }}
+          style={{
+            height: '100%', borderRadius: 9999,
+            background: barColor,
+            width: `${Math.min(score, 100)}%`,
+            transition: 'width 500ms ease',
+          }}
         />
       </div>
-      <span className={cn(
-        'font-mono text-sm font-bold w-8 text-right',
-        level === 'low'    && 'text-emerald-400',
-        level === 'medium' && 'text-amber-400',
-        level === 'high'   && 'text-red-400',
-      )}>
+      <span
+        style={{
+          fontFamily: 'IBM Plex Mono, monospace',
+          fontSize: 14, fontWeight: 700,
+          color: barColor, width: 32, textAlign: 'right',
+        }}
+      >
         {score}
       </span>
     </div>

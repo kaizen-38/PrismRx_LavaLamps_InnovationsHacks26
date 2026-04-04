@@ -2,15 +2,8 @@
 
 import { ExternalLink, Calendar, Shield, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Sheet } from './ui/sheet'
-import { Badge } from './ui/badge'
 import { FrictionBadge, FrictionScoreBar, FrictionFactorList } from './friction-badge'
-import {
-  cn,
-  COVERAGE_STATUS_LABEL,
-  COVERAGE_STATUS_COLOR,
-  formatDate,
-  frictionLevel,
-} from '@/lib/utils'
+import { formatDate, frictionLevel, COVERAGE_STATUS_LABEL } from '@/lib/utils'
 import type { PolicyDNA, Citation } from '@/lib/types'
 
 interface PolicyDrawerProps {
@@ -19,11 +12,9 @@ interface PolicyDrawerProps {
 }
 
 export function PolicyDrawer({ policy, onClose }: PolicyDrawerProps) {
-  const isOpen = policy !== null
-
   return (
     <Sheet
-      open={isOpen}
+      open={policy !== null}
       onClose={onClose}
       title={policy ? `${policy.drug_display_name} — ${policy.payer_name}` : ''}
       description={policy ? `${policy.plan_type} · ${policy.version_label} · Effective ${formatDate(policy.effective_date)}` : ''}
@@ -38,49 +29,72 @@ export function PolicyDrawer({ policy, onClose }: PolicyDrawerProps) {
 function DrawerContent({ policy }: { policy: PolicyDNA }) {
   const level = frictionLevel(policy.friction_score)
 
-  return (
-    <div className="flex flex-col gap-6 pb-8">
+  // Paperlight semantic status chips
+  const statusStyle: Record<string, { color: string; bg: string }> = {
+    covered:     { color: '#0F766E', bg: '#EAF8F4' },
+    preferred:   { color: '#2B50FF', bg: '#ECF1FF' },
+    conditional: { color: '#B45309', bg: '#FFF6E8' },
+    nonpreferred:{ color: '#C2410C', bg: '#FFF1EB' },
+    not_covered: { color: '#BE123C', bg: '#FFF0F4' },
+    unclear:     { color: '#64748B', bg: '#F3F6FB' },
+  }
+  const ss = statusStyle[policy.coverage_status] ?? statusStyle.unclear
 
-      {/* ── Status + PA row ── */}
-      <div className="flex flex-wrap items-center gap-2">
+  const frictionLabel = level === 'low' ? 'Low administrative burden' : level === 'medium' ? 'Moderate administrative burden' : 'High administrative burden'
+  const frictionColor = level === 'low' ? '#0F766E' : level === 'medium' ? '#B45309' : '#C2410C'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 32 }}>
+
+      {/* Status + PA row */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         <span
-          className={cn(
-            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ring-1 ring-inset',
-            COVERAGE_STATUS_COLOR[policy.coverage_status],
-          )}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px', borderRadius: 9999,
+            fontSize: 13, fontWeight: 600,
+            color: ss.color, background: ss.bg,
+          }}
         >
-          <span className="w-2 h-2 rounded-full bg-current opacity-80" />
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: ss.color }} />
           {COVERAGE_STATUS_LABEL[policy.coverage_status]}
         </span>
 
         {policy.pa_required && (
-          <Badge variant="outline" className="text-xs gap-1">
-            <AlertTriangle className="w-3 h-3 text-amber-400" />
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', borderRadius: 9999,
+              fontSize: 12, fontWeight: 600,
+              color: '#B45309', background: '#FFF6E8',
+              border: '1px solid #B4530920',
+            }}
+          >
+            <AlertTriangle className="w-3 h-3" />
             PA Required
-          </Badge>
+          </span>
         )}
 
         {policy.step_therapy_required && (
-          <Badge variant="outline" className="text-xs">
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', borderRadius: 9999,
+              fontSize: 12, fontWeight: 600,
+              color: '#64748B', background: '#F3F6FB',
+              border: '1px solid #E7EDF5',
+            }}
+          >
             Step Therapy
-          </Badge>
+          </span>
         )}
       </div>
 
-      {/* ── Friction score ── */}
+      {/* Friction score */}
       <Section title="Access Friction Score" icon={Shield}>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm mb-1">
-            <span className={cn(
-              'font-medium',
-              level === 'low'    && 'text-emerald-400',
-              level === 'medium' && 'text-amber-400',
-              level === 'high'   && 'text-red-400',
-            )}>
-              {level === 'low' ? 'Low administrative burden' :
-               level === 'medium' ? 'Moderate administrative burden' :
-               'High administrative burden'}
-            </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: frictionColor }}>{frictionLabel}</span>
             <FrictionBadge score={policy.friction_score} size="md" />
           </div>
           <FrictionScoreBar score={policy.friction_score} />
@@ -88,45 +102,40 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         </div>
       </Section>
 
-      {/* ── Clinical criteria ── */}
+      {/* Clinical criteria */}
       <Section title="Clinical Criteria" icon={CheckCircle2}>
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {policy.clinical_criteria.diagnosis_required.length > 0 && (
             <CriteriaBlock label="Covered Diagnoses">
               <ChipList items={policy.clinical_criteria.diagnosis_required} />
             </CriteriaBlock>
           )}
-
           {policy.clinical_criteria.prior_failure.length > 0 && (
             <CriteriaBlock label="Required Prior Therapy Failures">
               <ChipList items={policy.clinical_criteria.prior_failure} variant="amber" />
             </CriteriaBlock>
           )}
-
           {policy.clinical_criteria.specialty_required && (
             <CriteriaBlock label="Prescriber Specialty">
               <ChipList items={[policy.clinical_criteria.specialty_required]} variant="blue" />
             </CriteriaBlock>
           )}
-
           {policy.clinical_criteria.lab_requirements.length > 0 && (
             <CriteriaBlock label="Laboratory / Biomarker Requirements">
               <ChipList items={policy.clinical_criteria.lab_requirements} variant="violet" />
             </CriteriaBlock>
           )}
-
           {policy.clinical_criteria.age_restriction && (
             <CriteriaBlock label="Age Restriction">
               <ChipList items={[policy.clinical_criteria.age_restriction]} />
             </CriteriaBlock>
           )}
-
           {policy.clinical_criteria.additional_notes.length > 0 && (
             <CriteriaBlock label="Additional Notes">
-              <ul className="space-y-1.5">
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {policy.clinical_criteria.additional_notes.map((note, i) => (
-                  <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
-                    <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 mt-1.5" />
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: '#64748B' }}>
+                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#CBD5E1', flexShrink: 0, marginTop: 5 }} />
                     {note}
                   </li>
                 ))}
@@ -136,23 +145,15 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         </div>
       </Section>
 
-      {/* ── Operational rules ── */}
+      {/* Operational rules */}
       {hasOperationalRules(policy) && (
         <Section title="Operational Rules" icon={FileText}>
-          <div className="space-y-3 text-sm text-slate-400">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {policy.operational_rules.site_of_care && (
-              <OperationalRow
-                label="Site of Care"
-                value={policy.operational_rules.site_of_care}
-                highlight={policy.friction_factors.site_of_care_restriction}
-              />
+              <OperationalRow label="Site of Care" value={policy.operational_rules.site_of_care} highlight={policy.friction_factors.site_of_care_restriction} />
             )}
             {policy.operational_rules.renewal_interval_days && (
-              <OperationalRow
-                label="Renewal Interval"
-                value={`${policy.operational_rules.renewal_interval_days} days`}
-                highlight={policy.friction_factors.renewal_complexity}
-              />
+              <OperationalRow label="Renewal Interval" value={`${policy.operational_rules.renewal_interval_days} days`} highlight={policy.friction_factors.renewal_complexity} />
             )}
             {policy.operational_rules.dosing_notes && (
               <OperationalRow label="Dosing Notes" value={policy.operational_rules.dosing_notes} />
@@ -169,12 +170,21 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         </Section>
       )}
 
-      {/* ── HCPCS codes ── */}
+      {/* HCPCS codes */}
       {policy.hcpcs_codes.length > 0 && (
         <Section title="HCPCS / J-Codes" icon={FileText}>
-          <div className="flex flex-wrap gap-1.5">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {policy.hcpcs_codes.map((code) => (
-              <span key={code} className="font-mono text-xs px-2 py-1 rounded-md bg-navy-800 text-cyan-400 border border-navy-700">
+              <span
+                key={code}
+                style={{
+                  fontFamily: 'IBM Plex Mono, monospace',
+                  fontSize: 11, fontWeight: 500,
+                  padding: '3px 8px', borderRadius: 6,
+                  color: '#2B50FF', background: '#ECF1FF',
+                  border: '1px solid #2B50FF20',
+                }}
+              >
                 {code}
               </span>
             ))}
@@ -182,13 +192,13 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         </Section>
       )}
 
-      {/* ── Evidence citations ── */}
+      {/* Evidence citations */}
       {policy.evidence_citations.length > 0 && (
         <Section title="Evidence Citations" icon={ExternalLink}>
-          <p className="text-xs text-slate-600 mb-3">
-            Source-backed evidence spans from public payer policy documents.
+          <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 12 }}>
+            Source-backed evidence from public payer policy documents.
           </p>
-          <div className="space-y-4">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {policy.evidence_citations.map((citation) => (
               <CitationCard key={citation.id} citation={citation} />
             ))}
@@ -196,20 +206,20 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         </Section>
       )}
 
-      {/* ── Biosimilars ── */}
+      {/* Biosimilars */}
       {(policy.biosimilars.length > 0 || policy.reference_product) && (
         <Section title="Drug Variants" icon={FileText}>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 w-28 flex-shrink-0">Reference product</span>
-              <span className="text-slate-300 font-medium">{policy.reference_product}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: '#94A3B8', width: 120, flexShrink: 0 }}>Reference product</span>
+              <span style={{ fontWeight: 600, color: '#111827' }}>{policy.reference_product}</span>
             </div>
             {policy.biosimilars.length > 0 && (
-              <div className="flex items-start gap-2">
-                <span className="text-slate-500 w-28 flex-shrink-0">Biosimilars</span>
-                <div className="flex flex-wrap gap-1">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span style={{ color: '#94A3B8', width: 120, flexShrink: 0 }}>Biosimilars</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {policy.biosimilars.map((b) => (
-                    <span key={b} className="text-xs px-2 py-0.5 rounded bg-navy-800 text-slate-300 border border-navy-700">
+                    <span key={b} style={{ fontSize: 12, padding: '2px 8px', borderRadius: 6, color: '#334155', background: '#F3F6FB', border: '1px solid #E7EDF5' }}>
                       {b}
                     </span>
                   ))}
@@ -220,12 +230,11 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         </Section>
       )}
 
-      {/* ── Compliance notice ── */}
-      <div className="mt-2 p-3 rounded-lg bg-navy-800 border border-navy-700">
-        <p className="text-xs text-slate-600 leading-relaxed">
-          <span className="text-slate-500 font-medium">Data source: </span>
-          Public payer policy documents only. This workspace uses no real patient data.
-          All patient scenarios are synthetic. Architecture designed for HIPAA-adaptable deployment.
+      {/* Compliance notice */}
+      <div style={{ padding: '12px 14px', borderRadius: 12, background: '#F3F6FB', border: '1px solid #E7EDF5' }}>
+        <p style={{ fontSize: 12, color: '#94A3B8', lineHeight: 1.6 }}>
+          <span style={{ color: '#64748B', fontWeight: 600 }}>Data source: </span>
+          Public payer policy documents only. No real patient data. All patient scenarios are synthetic.
         </p>
       </div>
 
@@ -235,20 +244,14 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Section({
-  title,
-  icon: Icon,
-  children,
-}: {
-  title: string
-  icon: React.ElementType
-  children: React.ReactNode
-}) {
+function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="w-3.5 h-3.5 text-slate-500" />
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{title}</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+        <Icon className="w-3.5 h-3.5" style={{ color: '#94A3B8' }} />
+        <h3 style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {title}
+        </h3>
       </div>
       {children}
     </div>
@@ -258,34 +261,31 @@ function Section({
 function CriteriaBlock({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium text-slate-500 mb-1.5">{label}</p>
+      <p style={{ fontSize: 12, fontWeight: 600, color: '#94A3B8', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
       {children}
     </div>
   )
 }
 
-function ChipList({
-  items,
-  variant = 'default',
-}: {
-  items: string[]
-  variant?: 'default' | 'amber' | 'blue' | 'violet'
-}) {
+function ChipList({ items, variant = 'default' }: { items: string[]; variant?: 'default' | 'amber' | 'blue' | 'violet' }) {
   const COLORS = {
-    default: 'bg-navy-800 text-slate-300 border-navy-700',
-    amber:   'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    blue:    'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    violet:  'bg-violet-500/10 text-violet-300 border-violet-500/20',
+    default: { color: '#334155', bg: '#F3F6FB', border: '#E7EDF5' },
+    amber:   { color: '#B45309', bg: '#FFF6E8', border: '#B4530920' },
+    blue:    { color: '#2B50FF', bg: '#ECF1FF', border: '#2B50FF20' },
+    violet:  { color: '#7C3AED', bg: '#F5F3FF', border: '#7C3AED20' },
   }
+  const c = COLORS[variant]
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {items.map((item) => (
         <span
           key={item}
-          className={cn(
-            'inline-flex items-center text-xs px-2.5 py-1 rounded-md border',
-            COLORS[variant],
-          )}
+          style={{
+            display: 'inline-flex', alignItems: 'center',
+            fontSize: 12, padding: '4px 10px', borderRadius: 7,
+            color: c.color, background: c.bg, border: `1px solid ${c.border}`,
+            lineHeight: 1.5,
+          }}
         >
           {item}
         </span>
@@ -294,20 +294,19 @@ function ChipList({
   )
 }
 
-function OperationalRow({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string
-  value: string
-  highlight?: boolean
-}) {
+function OperationalRow({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className={cn('flex items-start gap-3 p-2.5 rounded-lg', highlight ? 'bg-amber-500/5 border border-amber-500/15' : '')}>
-      <span className="text-slate-500 text-xs w-28 flex-shrink-0 pt-0.5">{label}</span>
-      <span className={cn('text-xs leading-relaxed', highlight ? 'text-amber-300' : 'text-slate-300')}>
-        {highlight && <AlertTriangle className="w-3 h-3 inline-block mr-1 -mt-0.5 text-amber-400" />}
+    <div
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+        padding: '8px 10px', borderRadius: 8,
+        background: highlight ? '#FFF6E8' : 'transparent',
+        border: highlight ? '1px solid #B4530920' : 'none',
+      }}
+    >
+      <span style={{ fontSize: 12, color: '#94A3B8', width: 112, flexShrink: 0, paddingTop: 1 }}>{label}</span>
+      <span style={{ fontSize: 13, color: highlight ? '#B45309' : '#334155', lineHeight: 1.55 }}>
+        {highlight && <AlertTriangle className="w-3 h-3 inline-block mr-1 -mt-0.5" style={{ color: '#B45309' }} />}
         {value}
       </span>
     </div>
@@ -316,17 +315,26 @@ function OperationalRow({
 
 function CitationCard({ citation }: { citation: Citation }) {
   return (
-    <div className="rounded-lg border border-navy-700 bg-navy-800/50 overflow-hidden">
-      {/* Source header — trust proof */}
-      <div className="px-3 py-2 border-b border-navy-700 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <FileText className="w-3 h-3 text-cyan-500 flex-shrink-0" />
-          <span className="text-xs font-medium text-cyan-400 truncate">{citation.source_label}</span>
+    <div style={{ borderRadius: 10, border: '1px solid #E7EDF5', overflow: 'hidden' }}>
+      {/* Source header */}
+      <div
+        style={{
+          padding: '7px 12px',
+          borderBottom: '1px solid #E7EDF5',
+          background: '#F3F6FB',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <FileText className="w-3 h-3 flex-shrink-0" style={{ color: '#2B50FF' }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#2B50FF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {citation.source_label}
+          </span>
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0 text-xs text-slate-600">
-          {citation.page && <span className="font-mono">p.{citation.page}</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, fontSize: 11, color: '#94A3B8' }}>
+          {citation.page && <span style={{ fontFamily: 'IBM Plex Mono, monospace' }}>p.{citation.page}</span>}
           {citation.section && (
-            <span className="hidden sm:block text-slate-700 truncate max-w-[120px]" title={citation.section}>
+            <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={citation.section}>
               § {citation.section}
             </span>
           )}
@@ -334,7 +342,7 @@ function CitationCard({ citation }: { citation: Citation }) {
             href={citation.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-600 hover:text-cyan-400 transition-colors"
+            style={{ color: '#94A3B8' }}
             aria-label="Open source document"
           >
             <ExternalLink className="w-3 h-3" />
@@ -343,32 +351,29 @@ function CitationCard({ citation }: { citation: Citation }) {
       </div>
 
       {/* Quote */}
-      <blockquote className="px-3 py-2.5">
-        <p className="text-xs text-slate-400 leading-relaxed italic">
+      <blockquote style={{ padding: '10px 12px', background: '#FFFFFF' }}>
+        <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.65, fontStyle: 'italic' }}>
           &ldquo;{citation.quote}&rdquo;
         </p>
       </blockquote>
 
       {/* Effective date */}
-      <div className="px-3 py-1.5 border-t border-navy-700 flex items-center gap-1.5">
-        <Calendar className="w-3 h-3 text-slate-700" />
-        <span className="text-xs text-slate-600">
-          Effective {formatDate(citation.effective_date)}
-        </span>
+      <div
+        style={{
+          padding: '5px 12px',
+          borderTop: '1px solid #E7EDF5',
+          background: '#F3F6FB',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        <Calendar className="w-3 h-3" style={{ color: '#CBD5E1' }} />
+        <span style={{ fontSize: 11, color: '#94A3B8' }}>Effective {formatDate(citation.effective_date)}</span>
       </div>
     </div>
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function hasOperationalRules(policy: PolicyDNA): boolean {
   const r = policy.operational_rules
-  return !!(
-    r.site_of_care ||
-    r.renewal_interval_days ||
-    r.dosing_notes ||
-    r.quantity_limit ||
-    r.documentation_required.length > 0
-  )
+  return !!(r.site_of_care || r.renewal_interval_days || r.dosing_notes || r.quantity_limit || r.documentation_required.length > 0)
 }
