@@ -8,6 +8,7 @@ import type {
   PolicyDNA,
   CoverageMatrixData,
   MatrixRow,
+  MatrixCell,
   DrugFamily,
   PolicyDiff,
 } from './types'
