@@ -1,97 +1,58 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Inter, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
+import { FloatingNav } from '@/components/layout/FloatingNav'
 
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
 })
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmMono = IBM_Plex_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
+  weight: ['400', '500'],
 })
 
 export const metadata: Metadata = {
-  title: 'PrismRx — Coverage Intelligence',
+  title: 'PrismRx — Policy Intelligence for Medical Benefit Drugs',
   description:
-    'Turn fragmented medical-benefit drug policies into a searchable, comparable, and explainable workspace.',
-  keywords: ['drug policy', 'prior authorization', 'payer coverage', 'medical benefit', 'formulary'],
+    'Turn fragmented payer policies into structured coverage intelligence. Compare criteria, inspect evidence, and spot policy drift.',
+  keywords: ['drug policy', 'prior authorization', 'payer coverage', 'medical benefit', 'formulary', 'coverage matrix'],
+  openGraph: {
+    title: 'PrismRx — Policy Intelligence',
+    description: 'Coverage is written in fragments. PrismRx turns it into signal.',
+    type: 'website',
+  },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} dark`}
-      suppressHydrationWarning
-    >
-      <body className="min-h-screen bg-navy-950 text-slate-100 font-sans antialiased">
-        {/* Top nav — minimal, keeps focus on content */}
-        <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
-          <div className="mx-auto max-w-screen-2xl px-6 h-14 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2 group">
-              <span className="text-lg font-bold tracking-tight">
-                <span className="text-white">Prism</span>
-                <span className="text-cyan-500">Rx</span>
-              </span>
-              <span className="hidden sm:block text-xs font-mono text-slate-500 border border-navy-700 rounded px-1.5 py-0.5">
-                Coverage Intelligence
-              </span>
-            </a>
-
-            <nav className="flex items-center gap-1">
-              <NavLink href="/matrix">Matrix</NavLink>
-              <NavLink href="/simulate">Simulator</NavLink>
-              <NavLink href="/radar">Change Radar</NavLink>
-            </nav>
-
-            <div className="flex items-center gap-3">
-              {/* Compliance pill */}
-              <span className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 border border-navy-700 rounded-full px-3 py-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Public data · Synthetic cases
-              </span>
-            </div>
-          </div>
-        </header>
-
+    <html lang="en" className={`${inter.variable} ${ibmMono.variable} dark`} suppressHydrationWarning>
+      <body
+        className="min-h-screen font-sans antialiased"
+        style={{ background: 'var(--bg)', color: 'var(--text-primary)' }}
+      >
+        <FloatingNav />
         <main>{children}</main>
-
-        <footer className="mt-24 border-t border-navy-700 py-8">
-          <div className="mx-auto max-w-screen-2xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
-            <span>
-              © 2026 PrismRx · Innovation Hacks 2026 · Anton RX Track
-            </span>
-            <span className="font-mono">
+        <footer
+          className="mt-24 py-8"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <div
+            className="mx-auto max-w-screen-xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4"
+            style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+          >
+            <span>© 2026 PrismRx · Innovation Hacks 2.0 · LavaLamps Team</span>
+            <span style={{ fontFamily: '"IBM Plex Mono", monospace' }}>
               Public payer documents · Synthetic cases only · No PHI
             </span>
           </div>
         </footer>
       </body>
     </html>
-  )
-}
-
-function NavLink({
-  href,
-  children,
-}: {
-  href: string
-  children: React.ReactNode
-}) {
-  return (
-    <a
-      href={href}
-      className="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-slate-100 hover:bg-navy-800 transition-colors duration-150"
-    >
-      {children}
-    </a>
   )
 }
