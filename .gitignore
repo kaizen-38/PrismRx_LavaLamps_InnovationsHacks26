@@ -42,3 +42,4 @@ logs/
 node_modules/
 .next/
 dist/
+.env.example
