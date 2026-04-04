@@ -3,6 +3,7 @@
 import { ExternalLink, Calendar, Shield, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Sheet } from './ui/sheet'
 import { FrictionBadge, FrictionScoreBar, FrictionFactorList } from './friction-badge'
+import { VoiceBrief } from './voice/VoiceBrief'
 import { formatDate, frictionLevel, COVERAGE_STATUS_LABEL } from '@/lib/utils'
 import type { PolicyDNA, Citation } from '@/lib/types'
 
@@ -89,6 +90,20 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
           </span>
         )}
       </div>
+
+      {/* Voice brief */}
+      <VoiceBrief
+        context="matrix"
+        drug={policy.drug_display_name}
+        payer={policy.payer_name}
+        status={policy.coverage_status}
+        blockers={[
+          ...policy.clinical_criteria.prior_failure.slice(0, 2),
+          ...(policy.operational_rules.site_of_care ? [policy.operational_rules.site_of_care] : []),
+        ]}
+        next_step={policy.clinical_criteria.additional_notes[0]}
+        raw_json={policy}
+      />
 
       {/* Friction score */}
       <Section title="Access Friction Score" icon={Shield}>

@@ -10,9 +10,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "clsx": "^2.1.1",
+    "elevenlabs": "^1.59.0",
     "framer-motion": "^11.3.28",
     "geist": "^1.7.0",
     "lucide-react": "^0.441.0",
