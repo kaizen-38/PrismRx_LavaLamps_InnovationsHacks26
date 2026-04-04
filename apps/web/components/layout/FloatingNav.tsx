@@ -3,89 +3,76 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { LayoutGrid, FlaskConical, Radio, BookOpen, ChevronDown } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { LayoutGrid, FlaskConical, Radio } from 'lucide-react'
+import { spring } from '@/lib/motion/presets'
 
 const NAV_LINKS = [
-  { href: '/matrix',   label: 'Matrix',      icon: LayoutGrid  },
-  { href: '/simulate', label: 'Simulator',   icon: FlaskConical },
-  { href: '/radar',    label: 'Change Radar', icon: Radio       },
+  { href: '/matrix',   label: 'Matrix',       icon: LayoutGrid   },
+  { href: '/simulate', label: 'Simulator',     icon: FlaskConical },
+  { href: '/radar',    label: 'Change Radar',  icon: Radio        },
 ]
 
 export function FloatingNav() {
-  const pathname = usePathname()
+  const pathname  = usePathname()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20)
+    const onScroll = () => setScrolled(window.scrollY > 16)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   return (
     <motion.header
-      initial={{ y: -16, opacity: 0 }}
-      animate={{ y: 0,   opacity: 1 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed top-0 inset-x-0 z-50 flex justify-center pt-4 px-4"
-      style={{ pointerEvents: 'none' }}
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className="fixed top-0 inset-x-0 z-50 flex justify-center pt-3 px-4 pointer-events-none"
     >
       <nav
-        className="flex items-center gap-1 px-3 py-2 rounded-2xl transition-all duration-300"
+        className="pointer-events-auto flex items-center gap-0.5 px-2 py-1.5 rounded-full transition-all duration-300"
         style={{
-          pointerEvents: 'auto',
-          background: scrolled
-            ? 'rgba(11,17,26,0.88)'
-            : 'rgba(11,17,26,0.6)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          border: '1px solid rgba(164,183,211,0.1)',
+          background: scrolled ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(18px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(18px) saturate(150%)',
+          border: `1px solid ${scrolled ? '#D6E0EB' : '#E7EDF5'}`,
           boxShadow: scrolled
-            ? '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)'
-            : '0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+            ? '0 8px 24px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05)'
+            : '0 4px 14px rgba(15,23,42,0.04)',
         }}
       >
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 mr-3 group">
-          <div className="relative flex items-center">
-            {/* Prism shape */}
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className="flex-shrink-0">
-              <polygon
-                points="11,2 20,18 2,18"
-                fill="none"
-                stroke="url(#prism-grad)"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-              />
-              <line x1="11" y1="2" x2="11" y2="18" stroke="rgba(91,231,255,0.3)" strokeWidth="0.8" />
-              <line x1="2" y1="18" x2="20" y2="18" stroke="rgba(143,124,255,0.2)" strokeWidth="0.8" />
-              <defs>
-                <linearGradient id="prism-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#5BE7FF" />
-                  <stop offset="100%" stopColor="#8F7CFF" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <span className="text-sm font-semibold tracking-tight" style={{ color: '#E8EEF8' }}>
-            Prism<span style={{ color: '#5BE7FF' }}>Rx</span>
-          </span>
+        <Link href="/" className="flex items-center gap-2 px-3 py-1.5 mr-1">
+          <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+            <polygon
+              points="9,1.5 16.5,15.5 1.5,15.5"
+              fill="none"
+              stroke="url(#pnav-g)"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            <defs>
+              <linearGradient id="pnav-g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#2B50FF" />
+                <stop offset="100%" stopColor="#0F766E" />
+              </linearGradient>
+            </defs>
+          </svg>
           <span
-            className="hidden sm:block text-[10px] font-medium px-1.5 py-0.5 rounded"
             style={{
-              color: '#7C8DA6',
-              background: 'rgba(23,35,53,0.8)',
-              border: '1px solid rgba(164,183,211,0.12)',
-              fontFamily: '"IBM Plex Mono", monospace',
-              letterSpacing: '0.04em',
+              fontWeight: 600,
+              fontSize: 14,
+              color: '#111827',
+              letterSpacing: '-0.02em',
             }}
           >
-            beta
+            PrismRx
           </span>
         </Link>
 
-        {/* Separator */}
-        <div className="w-px h-4 mx-1" style={{ background: 'rgba(164,183,211,0.12)' }} />
+        {/* Divider */}
+        <div className="h-4 w-px mx-1" style={{ background: '#E7EDF5' }} />
 
         {/* Nav links */}
         {NAV_LINKS.map(({ href, label, icon: Icon }) => {
@@ -94,51 +81,42 @@ export function FloatingNav() {
             <Link
               key={href}
               href={href}
-              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm transition-colors duration-150"
-              style={{
-                color: active ? '#E8EEF8' : '#7C8DA6',
-                background: active ? 'rgba(23,35,53,0.8)' : 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (!active) (e.currentTarget as HTMLElement).style.color = '#A6B4C8'
-              }}
-              onMouseLeave={(e) => {
-                if (!active) (e.currentTarget as HTMLElement).style.color = '#7C8DA6'
-              }}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors duration-150"
+              style={{ color: active ? '#111827' : '#64748B' }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#111827' }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#64748B' }}
             >
-              <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="hidden sm:block">{label}</span>
               {active && (
                 <motion.div
                   layoutId="nav-pill"
-                  className="absolute inset-0 rounded-xl"
-                  style={{
-                    background: 'rgba(91,231,255,0.06)',
-                    border: '1px solid rgba(91,231,255,0.15)',
-                  }}
-                  transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+                  className="absolute inset-0 rounded-full"
+                  style={{ background: '#ECF1FF' }}
+                  transition={spring.hover}
                 />
               )}
+              <Icon className="w-3.5 h-3.5 flex-shrink-0 relative z-10" />
+              <span className="hidden sm:block relative z-10 font-medium" style={{ fontSize: 13 }}>
+                {label}
+              </span>
             </Link>
           )
         })}
 
-        {/* Separator */}
-        <div className="w-px h-4 mx-1" style={{ background: 'rgba(164,183,211,0.12)' }} />
+        {/* Divider */}
+        <div className="h-4 w-px mx-1" style={{ background: '#E7EDF5' }} />
 
-        {/* Compliance pill */}
-        <span
-          className="hidden md:flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl"
-          style={{
-            color: '#62E7B7',
-            background: 'rgba(98,231,183,0.08)',
-            border: '1px solid rgba(98,231,183,0.15)',
-            fontFamily: '"IBM Plex Mono", monospace',
-          }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#62E7B7] animate-pulse" />
-          Public · Synthetic
-        </span>
+        {/* CTA */}
+        <Link href="/matrix">
+          <motion.span
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white cursor-pointer"
+            style={{ background: '#2B50FF', fontSize: 13, letterSpacing: '-0.01em' }}
+            whileHover={{ background: '#1D4ED8' }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ duration: 0.16 }}
+          >
+            Open App
+          </motion.span>
+        </Link>
       </nav>
     </motion.header>
   )
