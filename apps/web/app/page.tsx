@@ -71,6 +71,7 @@ function CTACard({
   description,
   accent,
   loadingCopy,
+  requiredRole,
 }: {
   href: string
   icon: React.ElementType
@@ -78,6 +79,7 @@ function CTACard({
   description: string
   accent: 'cyan' | 'violet' | 'blue'
   loadingCopy: string
+  requiredRole?: string
 }) {
   const ACCENTS = {
     cyan:   { border: 'hover:border-cyan-500/50', glow: 'hover:shadow-glow-cyan', icon: 'text-cyan-400 bg-cyan-500/10', tag: 'text-cyan-400' },
@@ -99,6 +101,16 @@ function CTACard({
           transition-all duration-200
         `}
       >
+        {/* Role badge */}
+        {requiredRole && (
+          <div className="absolute top-4 right-4 flex items-center gap-1 rounded-full border border-navy-600 bg-navy-800/80 px-2 py-0.5 text-[10px] text-slate-500">
+            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+            </svg>
+            {requiredRole}
+          </div>
+        )}
+
         {/* Icon */}
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${a.icon}`}>
           <Icon className="w-6 h-6" />
@@ -207,6 +219,7 @@ export default function LandingPage() {
             description="Enter a synthetic patient scenario and surface approval blockers, missing evidence, and the fastest likely approvable path per payer."
             accent="violet"
             loadingCopy="Resolving biosimilar relationships..."
+            requiredRole="Coordinator"
           />
           <CTACard
             href="/radar"
@@ -215,6 +228,7 @@ export default function LandingPage() {
             description="Track quarter-over-quarter policy drift. Understand whether access criteria tightened or loosened and which synthetic patient archetypes are now blocked."
             accent="blue"
             loadingCopy="Computing policy drift..."
+            requiredRole="Analyst"
           />
         </motion.div>
 
