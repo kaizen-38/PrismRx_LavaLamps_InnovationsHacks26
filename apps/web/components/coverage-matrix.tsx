@@ -20,8 +20,6 @@ interface CoverageMatrixProps {
   className?: string
 }
 
-// ── Animation ─────────────────────────────────────────────────────────────────
-
 const cellVariants = {
   hidden: { opacity: 0, scale: 0.95 },
   show:   (i: number) => ({
@@ -39,9 +37,7 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
 
   const handleCellClick = useCallback(
     async (cell: MatrixCell, _drugKey: string, _payerId: string) => {
-      if (!cell.policy_id) return
-      if (!onCellClick) return
-
+      if (!cell.policy_id || !onCellClick) return
       setLoadingCell(cell.policy_id)
       try {
         const policy = await onCellClick(cell.policy_id)
@@ -55,24 +51,35 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
 
   return (
     <>
-      <div className={cn('rounded-2xl border border-navy-700 overflow-hidden', className)}>
-        {/* Scrollable table wrapper */}
+      <div
+        className={cn('overflow-hidden', className)}
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E7EDF5',
+          borderRadius: 20,
+          boxShadow: '0 8px 24px rgba(15,23,42,0.06)',
+        }}
+      >
         <div className="overflow-x-auto">
           <table className="w-full border-collapse min-w-[720px]">
+
             {/* ── Column headers ── */}
             <thead>
-              <tr className="bg-navy-900 border-b border-navy-700">
+              <tr style={{ background: '#F3F6FB', borderBottom: '1px solid #E7EDF5' }}>
                 {/* Drug column header */}
-                <th className="sticky left-0 z-10 bg-navy-900 px-5 py-4 text-left min-w-[180px]">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                <th
+                  className="sticky left-0 z-10 px-6 py-4 text-left min-w-[200px]"
+                  style={{ background: '#F3F6FB' }}
+                >
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Drug Family
                   </span>
                 </th>
 
                 {/* Payer column headers */}
                 {data.payer_ids.map((payerId) => (
-                  <th key={payerId} className="px-4 py-4 text-center min-w-[140px]">
-                    <span className="text-xs font-semibold text-slate-400">
+                  <th key={payerId} className="px-4 py-4 text-center min-w-[160px]">
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
                       {data.payer_labels[payerId]}
                     </span>
                   </th>
@@ -85,22 +92,28 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
               {data.rows.map((row, rowIdx) => (
                 <tr
                   key={row.drug_key}
-                  className="border-b border-navy-800 last:border-0 group/row"
+                  style={{ borderBottom: '1px solid #F3F6FB' }}
+                  className="group/row last:border-0"
                 >
                   {/* Drug name cell */}
-                  <td className="sticky left-0 z-10 bg-navy-950 group-hover/row:bg-navy-900 transition-colors px-5 py-4">
-                    <div>
-                      <div className="font-semibold text-sm text-slate-200">
-                        {row.drug_display_name}
-                      </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-xs font-mono text-slate-600">{row.reference_product}</span>
-                        {row.biosimilars.length > 0 && (
-                          <span className="text-xs text-slate-700">
-                            +{row.biosimilars.length} bio
-                          </span>
-                        )}
-                      </div>
+                  <td
+                    className="sticky left-0 z-10 px-6 py-4 transition-colors"
+                    style={{ background: '#FFFFFF' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F6F8FB')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#FFFFFF')}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>
+                      {row.drug_display_name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, ui-monospace, monospace', color: '#94A3B8' }}>
+                        {row.reference_product}
+                      </span>
+                      {row.biosimilars.length > 0 && (
+                        <span style={{ fontSize: 11, color: '#CBD5E1' }}>
+                          +{row.biosimilars.length} bio
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -114,17 +127,16 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
                     return (
                       <td
                         key={payerId}
-                        className={cn(
-                          'px-3 py-3 text-center transition-colors',
-                          isClickable && 'cursor-pointer hover:bg-navy-800/60',
-                          isLoading && 'opacity-60',
-                        )}
+                        className="px-3 py-4 text-center transition-colors"
+                        style={{
+                          cursor: isClickable ? 'pointer' : 'default',
+                          opacity: isLoading ? 0.6 : 1,
+                          borderLeft: '1px solid #F3F6FB',
+                        }}
                         onClick={() => cell && handleCellClick(cell, row.drug_key, payerId)}
-                        title={
-                          isClickable
-                            ? `${row.drug_display_name} · ${data.payer_labels[payerId]} — click for details`
-                            : undefined
-                        }
+                        onMouseEnter={e => { if (isClickable) (e.currentTarget as HTMLElement).style.background = '#F6F8FB' }}
+                        onMouseLeave={e => { if (isClickable) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                        title={isClickable ? `${row.drug_display_name} · ${data.payer_labels[payerId]} — click for details` : undefined}
                       >
                         <motion.div
                           custom={cellIndex}
@@ -136,7 +148,7 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
                           {cell ? (
                             <MatrixCellContent cell={cell} isLoading={isLoading} />
                           ) : (
-                            <span className="text-xs text-slate-700 italic">—</span>
+                            <span style={{ fontSize: 12, color: '#CBD5E1', fontStyle: 'italic' }}>—</span>
                           )}
                         </motion.div>
                       </td>
@@ -152,7 +164,6 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
         <MatrixLegend />
       </div>
 
-      {/* Policy detail drawer */}
       <PolicyDrawer
         policy={selectedPolicy}
         onClose={() => setSelectedPolicy(null)}
@@ -161,7 +172,7 @@ export function CoverageMatrix({ data, onCellClick, className }: CoverageMatrixP
   )
 }
 
-// ── Matrix cell ───────────────────────────────────────────────────────────────
+// ── Matrix cell content ───────────────────────────────────────────────────────
 
 function MatrixCellContent({ cell, isLoading }: { cell: MatrixCell; isLoading: boolean }) {
   if (isLoading) {
@@ -173,33 +184,46 @@ function MatrixCellContent({ cell, isLoading }: { cell: MatrixCell; isLoading: b
     )
   }
 
+  // Paperlight semantic chip colors
+  const statusStyle: Record<string, { color: string; bg: string }> = {
+    covered:     { color: '#0F766E', bg: '#EAF8F4' },
+    preferred:   { color: '#2B50FF', bg: '#ECF1FF' },
+    conditional: { color: '#B45309', bg: '#FFF6E8' },
+    nonpreferred:{ color: '#C2410C', bg: '#FFF1EB' },
+    not_covered: { color: '#BE123C', bg: '#FFF0F4' },
+    unclear:     { color: '#64748B', bg: '#F3F6FB' },
+  }
+  const s = statusStyle[cell.coverage_status] ?? statusStyle.unclear
+
   return (
     <>
       {/* Coverage status badge */}
       <span
-        className={cn(
-          'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset',
-          COVERAGE_STATUS_COLOR[cell.coverage_status],
-        )}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          padding: '3px 10px', borderRadius: 9999,
+          fontSize: 11, fontWeight: 600,
+          color: s.color, background: s.bg,
+        }}
       >
-        <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', COVERAGE_STATUS_DOT[cell.coverage_status])} />
+        <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
         {COVERAGE_STATUS_LABEL[cell.coverage_status]}
       </span>
 
-      {/* Friction score chip */}
+      {/* Friction score */}
       <FrictionBadge score={cell.friction_score} size="sm" />
 
       {/* PA flag */}
       {cell.pa_required && (
-        <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-500/80">
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: '#B45309' }}>
           <AlertCircle className="w-2.5 h-2.5" />
           PA
         </span>
       )}
 
-      {/* Effective date — subtle */}
+      {/* Effective date */}
       {cell.effective_date && (
-        <span className="text-[10px] font-mono text-slate-700">
+        <span style={{ fontSize: 10, fontFamily: 'IBM Plex Mono, monospace', color: '#94A3B8' }}>
           {formatDateShort(cell.effective_date)}
         </span>
       )}
@@ -210,33 +234,41 @@ function MatrixCellContent({ cell, isLoading }: { cell: MatrixCell; isLoading: b
 // ── Legend ────────────────────────────────────────────────────────────────────
 
 function MatrixLegend() {
-  const STATUSES = [
-    'covered', 'conditional', 'preferred', 'nonpreferred', 'not_covered', 'unclear',
-  ] as const
+  const STATUSES = ['covered', 'conditional', 'preferred', 'nonpreferred', 'not_covered', 'unclear'] as const
+
+  const dotColors: Record<string, string> = {
+    covered: '#0F766E', preferred: '#2B50FF', conditional: '#B45309',
+    nonpreferred: '#C2410C', not_covered: '#BE123C', unclear: '#94A3B8',
+  }
 
   return (
-    <div className="px-5 py-4 border-t border-navy-700 bg-navy-900/50">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <div className="flex items-center gap-1 text-xs text-slate-600">
-          <Info className="w-3 h-3" />
-          <span>Coverage status</span>
+    <div
+      style={{
+        padding: '12px 24px',
+        borderTop: '1px solid #E7EDF5',
+        background: '#F3F6FB',
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748B' }}>
+        <Info className="w-3 h-3" />
+        <span>Coverage status</span>
+      </div>
+      {STATUSES.map((s) => (
+        <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColors[s], flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: '#64748B' }}>{COVERAGE_STATUS_LABEL[s]}</span>
         </div>
-        {STATUSES.map((s) => (
-          <div key={s} className="flex items-center gap-1.5">
-            <span className={cn('w-2 h-2 rounded-full', COVERAGE_STATUS_DOT[s])} />
-            <span className="text-xs text-slate-500">{COVERAGE_STATUS_LABEL[s]}</span>
-          </div>
-        ))}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <AlertCircle className="w-3 h-3 text-amber-500/80" />
-          <span className="text-xs text-slate-500">PA = Prior Authorization required</span>
-        </div>
+      ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto' }}>
+        <AlertCircle className="w-3 h-3" style={{ color: '#B45309' }} />
+        <span style={{ fontSize: 11, color: '#64748B' }}>PA = Prior Authorization required</span>
       </div>
     </div>
   )
 }
 
-// ── Filter bar (exported separately for the matrix page) ─────────────────────
+// ── Filter bar ────────────────────────────────────────────────────────────────
 
 interface MatrixFilterBarProps {
   payers: string[]
@@ -250,30 +282,19 @@ interface MatrixFilterBarProps {
 }
 
 export function MatrixFilterBar({
-  payers,
-  payerLabels,
-  drugKeys,
-  drugLabels,
-  selectedPayer,
-  selectedDrug,
-  onPayerChange,
-  onDrugChange,
+  payers, payerLabels, drugKeys, drugLabels,
+  selectedPayer, selectedDrug, onPayerChange, onDrugChange,
 }: MatrixFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
       {/* Payer filter */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500">Payer</span>
-        <div className="flex gap-1">
-          <FilterChip
-            label="All"
-            active={selectedPayer === null}
-            onClick={() => onPayerChange(null)}
-          />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>Payer</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <FilterChip label="All" active={selectedPayer === null} onClick={() => onPayerChange(null)} />
           {payers.map((p) => (
             <FilterChip
-              key={p}
-              label={payerLabels[p] ?? p}
+              key={p} label={payerLabels[p] ?? p}
               active={selectedPayer === p}
               onClick={() => onPayerChange(p === selectedPayer ? null : p)}
             />
@@ -281,21 +302,16 @@ export function MatrixFilterBar({
         </div>
       </div>
 
-      <div className="w-px h-4 bg-navy-700" />
+      <div style={{ width: 1, height: 16, background: '#E7EDF5' }} />
 
       {/* Drug filter */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500">Drug</span>
-        <div className="flex gap-1 flex-wrap">
-          <FilterChip
-            label="All"
-            active={selectedDrug === null}
-            onClick={() => onDrugChange(null)}
-          />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>Drug</span>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <FilterChip label="All" active={selectedDrug === null} onClick={() => onDrugChange(null)} />
           {drugKeys.map((d) => (
             <FilterChip
-              key={d}
-              label={drugLabels[d] ?? d}
+              key={d} label={drugLabels[d] ?? d}
               active={selectedDrug === d}
               onClick={() => onDrugChange(d === selectedDrug ? null : d)}
             />
@@ -306,24 +322,20 @@ export function MatrixFilterBar({
   )
 }
 
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors duration-150',
-        active
-          ? 'bg-cyan-500/15 text-cyan-400 ring-1 ring-inset ring-cyan-500/30'
-          : 'text-slate-500 hover:text-slate-300 hover:bg-navy-800',
-      )}
+      style={{
+        padding: '4px 12px', borderRadius: 9999,
+        fontSize: 12, fontWeight: 500,
+        cursor: 'pointer', border: 'none', transition: 'all 150ms',
+        color:      active ? '#2B50FF' : '#64748B',
+        background: active ? '#ECF1FF' : 'transparent',
+        outline:    active ? '1px solid #2B50FF40' : 'none',
+      }}
+      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#111827'; (e.currentTarget as HTMLElement).style.background = '#F3F6FB' }}}
+      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#64748B'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}}
     >
       {label}
     </button>
