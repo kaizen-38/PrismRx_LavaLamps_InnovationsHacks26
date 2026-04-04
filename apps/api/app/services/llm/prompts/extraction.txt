@@ -1,0 +1,47 @@
+You are a medical benefit policy analyst. Extract structured coverage data from the payer policy text below.
+
+Return a single JSON object — no explanation, no markdown, just the JSON.
+
+REQUIRED FIELDS:
+{
+  "payer": "<health plan name>",
+  "plan_type": "commercial|exchange|medicare|medicaid|unknown",
+  "policy_number": "<policy ID or null>",
+  "effective_date": "<YYYY-MM-DD or null>",
+  "drug_family": "<therapeutic family, e.g. 'TNF Inhibitors' or null>",
+  "drug_names": ["<generic name>", "<brand name>", ...],
+  "hcpcs_codes": ["<J-code or HCPCS code>", ...],
+  "coverage_status": "covered|conditional|not_covered|unclear",
+  "covered_indications": ["<condition or diagnosis covered>", ...],
+  "prior_authorization_required": true|false,
+  "step_therapy_requirements": ["<drug or class patient must try first>", ...],
+  "diagnosis_requirements": ["<required diagnosis, ICD-10 if present>", ...],
+  "lab_or_biomarker_requirements": ["<lab test or biomarker requirement>", ...],
+  "prescriber_requirements": ["<specialty or credential required>", ...],
+  "site_of_care_restrictions": ["<approved administration site>", ...],
+  "dose_frequency_rules": ["<dosing or frequency limit>", ...],
+  "reauthorization_rules": ["<reauth or renewal requirement>", ...],
+  "preferred_product_notes": ["<biosimilar preference or step note>", ...],
+  "exclusions": ["<exclusion criterion>", ...],
+  "citations": [
+    {
+      "page": <page number as integer>,
+      "section": "<section heading where this was found>",
+      "quote": "<exact or near-exact quote supporting this field>",
+      "confidence": <0.0 to 1.0>
+    }
+  ]
+}
+
+RULES:
+- Use null for fields you cannot determine. Use [] for empty lists.
+- coverage_status = "conditional" means covered but requires PA, step therapy, or other criteria.
+- Include at least one citation per major extracted field.
+- Quote the exact policy language where possible.
+- Do NOT invent or infer criteria not stated in the text.
+- If the payer name is not in the text, use the hint provided.
+
+PAYER HINT: {payer_hint}
+
+POLICY TEXT (pages {page_start}–{page_end}):
+{policy_text}
