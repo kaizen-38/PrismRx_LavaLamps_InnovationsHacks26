@@ -5,9 +5,10 @@ from functools import lru_cache
 class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
+    log_level: str = "INFO"
 
     # Gemini
-    gemini_api_key: str
+    gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
     gemini_fallback_model: str = "gemini-2.5-pro"
 

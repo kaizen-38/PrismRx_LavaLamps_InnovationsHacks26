@@ -12,7 +12,8 @@ from .core.config import get_settings
 from .core.database import init_db
 from .api.ingest import router as ingest_router
 from .api.policies import router as policy_router
-from .routers import matrix, simulate, diff
+from .api.matrix import router as matrix_router
+from .routers import simulate, diff
 
 # Configure logging
 settings = get_settings()
@@ -48,7 +49,7 @@ app.add_middleware(
 
 app.include_router(ingest_router)
 app.include_router(policy_router)
-app.include_router(matrix.router, prefix="/api/v1/matrix", tags=["matrix"])
+app.include_router(matrix_router)
 app.include_router(simulate.router, prefix="/api/v1/simulate", tags=["simulate"])
 app.include_router(diff.router, prefix="/api/v1/diff", tags=["diff"])
 
