@@ -3,12 +3,12 @@
 import { useRef } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
-import Image from 'next/image'
 import {
-  ArrowRight, LayoutGrid, FlaskConical, Radio,
+  ArrowRight,
   CheckCircle2, Shield, FileText, Zap,
 } from 'lucide-react'
 import { PolicyPrism } from '@/components/3d/HeroScene'
+import { MatrixPreview, SimulatorPreview, RadarPreview } from '@/components/showcase/ShowcasePreviews'
 import {
   fadeUp, fadeIn, stagger, staggerSlow,
   sectionEntry, hoverLift, hoverButton, spring,
@@ -48,7 +48,7 @@ const SHOWCASE_STEPS = [
     step: '01',
     heading: 'Compare coverage across all payers',
     body: 'A single view of every payer\'s stance on a drug family — coverage status, prior auth flag, friction score, and effective date.',
-    image: '/showcase/matrix.png',
+    Preview: MatrixPreview,
     accent: '#2B50FF',
     href: '/matrix',
     cta: 'Open Coverage Matrix',
@@ -57,7 +57,7 @@ const SHOWCASE_STEPS = [
     step: '02',
     heading: 'Surface blockers before the PA request',
     body: 'Enter a patient scenario — drug, diagnosis, prior treatments, site of care — and instantly see what criteria are unmet and what the fastest approvable path looks like.',
-    image: '/showcase/simulator.png',
+    Preview: SimulatorPreview,
     accent: '#C2410C',
     href: '/simulate',
     cta: 'Try the Simulator',
@@ -66,7 +66,7 @@ const SHOWCASE_STEPS = [
     step: '03',
     heading: 'Know what changed — and why it matters',
     body: 'Quarter-over-quarter policy diffs with human-readable explanations. Every change linked back to its source page.',
-    image: '/showcase/radar.png',
+    Preview: RadarPreview,
     accent: '#0F766E',
     href: '/radar',
     cta: 'See Change Radar',
@@ -180,14 +180,10 @@ function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }
               app.prismrx.io{step.href}
             </div>
           </div>
-          <Image
-            src={step.image}
-            alt={step.heading}
-            width={640}
-            height={420}
-            className="w-full object-cover"
-            style={{ display: 'block' }}
-          />
+          {/* Live React preview — no AI images */}
+          <div style={{ padding: '0.75rem', background: 'var(--bg-soft)' }}>
+            <step.Preview />
+          </div>
         </div>
 
         {/* Floating accent chip */}
