@@ -1,14 +1,23 @@
 """
 SQLAlchemy ORM models — persisted policy records and source manifest.
+Merged: rhythm's schema (canonical Policy DNA) + sam's ParsingStatus enum.
 """
-from sqlalchemy import Column, String, Boolean, Text, DateTime, JSON, Float, Integer
+from sqlalchemy import Column, String, Boolean, Text, DateTime, JSON, Float, Integer, Enum
 from sqlalchemy.orm import DeclarativeBase
 from datetime import datetime
 import uuid
+import enum
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class ParsingStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class SourceDocument(Base):
@@ -19,14 +28,21 @@ class SourceDocument(Base):
     payer = Column(String, nullable=False, index=True)
     drug_family = Column(String, nullable=True, index=True)
     source_type = Column(String, nullable=False)   # pdf | html
-    source_uri = Column(String, nullable=True)     # original URL or file path
+    source_uri = Column(String, nullable=True)
     file_name = Column(String, nullable=True)
-    file_hash = Column(String, nullable=True, unique=True)  # sha256 — dedup
+    file_hash = Column(String, nullable=True, unique=True)  # sha256 dedup
     page_count = Column(Integer, nullable=True)
     raw_text = Column(Text, nullable=True)
-    parse_status = Column(String, default="pending")  # pending|parsed|failed
+    parse_status = Column(
+        Enum(ParsingStatus),
+        default=ParsingStatus.PENDING,
+        nullable=False,
+        index=True,
+    )
     extracted = Column(Boolean, default=False)
     ingested_at = Column(DateTime, default=datetime.utcnow)
+    parsed_at = Column(DateTime, nullable=True)
+    version = Column(Integer, default=1, nullable=False)
 
 
 class PolicyRecord(Base):
@@ -38,17 +54,17 @@ class PolicyRecord(Base):
 
     # Identity
     payer = Column(String, nullable=False, index=True)
-    plan_type = Column(String, default="unknown")  # commercial|exchange|medicare|medicaid|unknown
+    plan_type = Column(String, default="unknown")
     policy_number = Column(String, nullable=True)
     effective_date = Column(String, nullable=True)
 
     # Drug
     drug_family = Column(String, nullable=True, index=True)
-    drug_names = Column(JSON, default=list)        # [generic, brand, ...]
-    hcpcs_codes = Column(JSON, default=list)       # J-codes
+    drug_names = Column(JSON, default=list)
+    hcpcs_codes = Column(JSON, default=list)
 
     # Coverage
-    coverage_status = Column(String, default="unclear")  # covered|conditional|not_covered|unclear
+    coverage_status = Column(String, default="unclear")
     covered_indications = Column(JSON, default=list)
 
     # Clinical criteria
@@ -63,7 +79,7 @@ class PolicyRecord(Base):
     preferred_product_notes = Column(JSON, default=list)
     exclusions = Column(JSON, default=list)
 
-    # Citations — [{page, section, quote, confidence}]
+    # Citations
     citations = Column(JSON, default=list)
 
     # Extraction metadata

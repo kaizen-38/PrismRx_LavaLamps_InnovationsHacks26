@@ -43,6 +43,7 @@ node_modules/
 .next/
 dist/
 
+# Repo bootstrap / planning (not needed in git)
 plan.md
 Repo_Bootstrap_Prompt.md
 .claude/
