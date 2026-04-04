@@ -81,7 +81,7 @@ async def run_ingest(
         file_hash=doc.file_hash,
         page_count=doc.page_count,
         raw_text=doc.full_text[:50_000],  # cap stored raw text
-        parse_status="parsed",
+        parse_status="completed",
         extracted=False,
     )
     db.add(src)
@@ -95,7 +95,7 @@ async def run_ingest(
             drug_family_hint=drug_family or "",
         )
     except Exception as e:
-        src.parse_status = "extract_failed"
+        src.parse_status = "failed"
         await db.commit()
         return IngestResult(
             source_document_id=src.id,
