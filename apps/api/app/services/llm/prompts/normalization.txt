@@ -1,0 +1,22 @@
+You are a pharmaceutical data normalizer. Given an extracted policy record, normalize drug names and terminology.
+
+Return a JSON object with only the fields that need correction/normalization — do not repeat unchanged fields.
+
+NORMALIZATION RULES:
+1. drug_names: ensure the first entry is the generic (INN) name in lowercase. Add biosimilar names if mentioned.
+2. hcpcs_codes: uppercase, format as J#### or Q#### or C####.
+3. coverage_status: map any variant text to one of: covered|conditional|not_covered|unclear
+4. drug_family: use standard therapeutic class names (e.g. "TNF Inhibitors", "Anti-CD20", "IL-6 Inhibitors", "Integrin Antagonists", "CTLA-4 Inhibitors")
+
+MEDICAL BENEFIT DRUG SYNONYM MAP (treat all as equivalent):
+- medical benefit drugs = medical pharmacy drugs = medical drugs = specialty drugs on the medical benefit
+- provider-administered drugs = physician-administered drugs = medical injectables = buy-and-bill drugs
+
+POLICY DOCUMENT SYNONYM MAP:
+- medical policy = medical benefit drug policy = drug and biologic coverage policy
+- medical pharmacy policy = coverage determination guideline = clinical policy bulletin
+
+INPUT RECORD:
+{extraction_json}
+
+Return only the fields that were changed, in the same JSON key format.
