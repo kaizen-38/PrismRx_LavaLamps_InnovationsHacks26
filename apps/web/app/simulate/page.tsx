@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  FlaskConical, ChevronRight, CheckCircle2,
-  AlertCircle, XCircle, Loader2,
+  ClipboardCheck, ChevronRight, CheckCircle2,
+  AlertCircle, XCircle, Loader2, ArrowRight,
 } from 'lucide-react'
 import { runSimulation } from '@/lib/api-client'
 import type { SimulationCase, SimulationResult } from '@/lib/types'
@@ -43,17 +43,38 @@ const EMPTY_CASE: SimulationCase = {
   age: 0, labs: {}, notes: '',
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+// ── Coverage status labels ─────────────────────────────────────────────────────
 
-function FitScore({ score }: { score: number }) {
-  const color = score >= 70 ? '#0F766E' : score >= 40 ? '#B45309' : '#C2410C'
+function coverageLabel(status: SimulationResult['coverage_status'], fitScore: number): string {
+  if (fitScore >= 70) return 'Meets criteria'
+  if (status === 'not_covered') return 'Restricted under current policy'
+  if (status === 'nonpreferred') return 'Non-preferred — step therapy applies'
+  return 'Needs more evidence'
+}
+
+function coverageColor(fitScore: number): string {
+  if (fitScore >= 70) return '#0F766E'
+  if (fitScore >= 40) return '#B45309'
+  return '#C2410C'
+}
+
+function coverageBg(fitScore: number): string {
+  if (fitScore >= 70) return '#EAF8F4'
+  if (fitScore >= 40) return '#FFF6E8'
+  return '#FFF1EB'
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function CoverageFitBadge({ score }: { score: number }) {
+  const color = coverageColor(score)
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '1.75rem', fontWeight: 700, color, fontFamily: 'var(--font-ibm-plex-mono, monospace)', lineHeight: 1 }}>
+      <div style={{ fontSize: '1.6rem', fontWeight: 700, color, fontFamily: 'var(--font-ibm-plex-mono, monospace)', lineHeight: 1 }}>
         {score}
       </div>
-      <div style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        fit
+      <div style={{ fontSize: 9, color: 'var(--ink-faint)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
+        cov. fit
       </div>
     </div>
   )
@@ -74,22 +95,29 @@ function BlockerRow({ blocker }: { blocker: SimulationResult['blockers'][number]
         : <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#B45309' }} />
       }
       <div>
-        <p style={{ fontSize: 14, color: 'var(--ink-strong)' }}>{blocker.description}</p>
-        <p style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 2 }}>{blocker.resolution}</p>
+        <p style={{ fontSize: 14, color: 'var(--ink-strong)', lineHeight: 1.5 }}>
+          {blocker.description}
+        </p>
+        <p style={{ fontSize: 12, color: hard ? '#C2410C' : '#B45309', marginTop: 3, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+          <ArrowRight className="w-3 h-3 flex-shrink-0 mt-0.5" />
+          {blocker.resolution}
+        </p>
       </div>
     </div>
   )
 }
 
-function ResultCard({ result }: { result: SimulationResult }) {
-  const [expanded, setExpanded] = useState(false)
-  const fitColor = result.fit_score >= 70 ? '#0F766E' : result.fit_score >= 40 ? '#B45309' : '#C2410C'
-  const fitBg    = result.fit_score >= 70 ? '#EAF8F4' : result.fit_score >= 40 ? '#FFF6E8' : '#FFF1EB'
+function ResultCard({ result, rank }: { result: SimulationResult; rank: number }) {
+  const [expanded, setExpanded] = useState(rank === 0)
+  const fitColor = coverageColor(result.fit_score)
+  const fitBg    = coverageBg(result.fit_score)
+  const label    = coverageLabel(result.coverage_status, result.fit_score)
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: rank * 0.05 }}
       className="card overflow-hidden"
     >
       <button
@@ -100,21 +128,33 @@ function ResultCard({ result }: { result: SimulationResult }) {
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          {/* Fit score badge */}
+          {/* Coverage fit badge */}
           <div
             style={{
-              width: 48, height: 48, borderRadius: 12,
+              width: 52, height: 52, borderRadius: 12,
               background: fitBg, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}
           >
-            <FitScore score={result.fit_score} />
+            <CoverageFitBadge score={result.fit_score} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)' }}>{result.payer_name}</p>
-            <p style={{ fontSize: 13, color: 'var(--ink-muted)', marginTop: 2 }}>
-              {result.coverage_status} · {result.blockers.length} blocker{result.blockers.length !== 1 ? 's' : ''}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)' }}>{result.payer_name}</p>
+              {rank === 0 && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#0F766E', background: '#EAF8F4', padding: '1px 7px', borderRadius: 9999, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Best fit
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 13, color: fitColor, marginTop: 2, fontWeight: 500 }}>
+              {label}
             </p>
+            {result.blockers.length > 0 && (
+              <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 1 }}>
+                {result.blockers.length} blocker{result.blockers.length !== 1 ? 's' : ''} to resolve
+              </p>
+            )}
           </div>
         </div>
         <ChevronRight
@@ -134,9 +174,9 @@ function ResultCard({ result }: { result: SimulationResult }) {
           >
             <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Next best action */}
-              <div>
-                <p className="overline mb-1">Next Best Action</p>
-                <p style={{ fontSize: 14, color: 'var(--ink-body)', lineHeight: 1.6 }}>
+              <div style={{ background: '#F0F9FF', borderRadius: 10, padding: '10px 14px', border: '1px solid #BAE6FD' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#0369A1', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Next step</p>
+                <p style={{ fontSize: 14, color: '#0C4A6E', lineHeight: 1.6 }}>
                   {result.next_best_action}
                 </p>
               </div>
@@ -144,14 +184,21 @@ function ResultCard({ result }: { result: SimulationResult }) {
               {/* Blockers */}
               {result.blockers.length > 0 && (
                 <div>
-                  <p className="overline mb-2">Blockers</p>
+                  <p className="overline mb-2">Access blockers</p>
                   {result.blockers.map((b, i) => <BlockerRow key={i} blocker={b} />)}
+                </div>
+              )}
+
+              {result.blockers.length === 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#0F766E' }}>
+                  <CheckCircle2 className="w-4 h-4" />
+                  No access blockers identified for this case
                 </div>
               )}
 
               {/* PA Summary */}
               <div>
-                <p className="overline mb-1">PA Summary</p>
+                <p className="overline mb-1">Prior authorization summary</p>
                 <p style={{ fontSize: 14, color: 'var(--ink-muted)', lineHeight: 1.65 }}>
                   {result.pa_summary}
                 </p>
@@ -159,7 +206,7 @@ function ResultCard({ result }: { result: SimulationResult }) {
 
               {/* Evidence checklist */}
               <div>
-                <p className="overline mb-2">Evidence Pack</p>
+                <p className="overline mb-2">Evidence pack</p>
                 <ul style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {result.evidence_checklist.map((item, i) => (
                     <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--ink-muted)' }}>
@@ -188,9 +235,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function SimulatePage() {
+export default function CaseReviewPage() {
   const [caseData, setCaseData]     = useState<SimulationCase>(EMPTY_CASE)
   const [results, setResults]       = useState<SimulationResult[] | null>(null)
   const [loading, setLoading]       = useState(false)
@@ -216,6 +263,8 @@ export default function SimulatePage() {
     setResults(null)
   }
 
+  const bestFit = results && results.length > 0 ? results[0] : null
+
   return (
     <div
       className="mx-auto max-w-screen-xl px-4 sm:px-8 pt-28 pb-20"
@@ -223,15 +272,15 @@ export default function SimulatePage() {
     >
       {/* Page header */}
       <motion.div variants={stagger} initial="hidden" animate="show" className="mb-10">
-        <motion.p variants={fadeUp} className="overline mb-1">Blocker Analysis</motion.p>
+        <motion.p variants={fadeUp} className="overline mb-1">Access Review</motion.p>
         <motion.h1
           variants={fadeUp}
           style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.03em', marginBottom: '0.5rem' }}
         >
-          Case Simulator
+          Case Review
         </motion.h1>
-        <motion.p variants={fadeUp} style={{ fontSize: 15, color: 'var(--ink-muted)', maxWidth: '56ch', lineHeight: 1.65 }}>
-          Enter a synthetic patient scenario to surface approval blockers, missing evidence, and the fastest approvable path across all payers.
+        <motion.p variants={fadeUp} style={{ fontSize: 15, color: 'var(--ink-muted)', maxWidth: '58ch', lineHeight: 1.65 }}>
+          Enter a patient case to check coverage criteria across payers — surfaces access blockers, missing documentation, and the clearest path to approval.
         </motion.p>
       </motion.div>
 
@@ -241,7 +290,7 @@ export default function SimulatePage() {
         <div>
           {/* Quick examples */}
           <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 12, color: 'var(--ink-muted)', marginBottom: 8 }}>Quick examples</p>
+            <p style={{ fontSize: 12, color: 'var(--ink-muted)', marginBottom: 8 }}>Example cases</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {EXAMPLE_CASES.map(ex => (
                 <button
@@ -357,9 +406,9 @@ export default function SimulatePage() {
               style={{ opacity: loading || !caseData.diagnosis ? 0.5 : 1, cursor: loading || !caseData.diagnosis ? 'not-allowed' : 'pointer' }}
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing…</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Checking coverage…</>
               ) : (
-                <><FlaskConical className="w-4 h-4" /> Run Simulation</>
+                <><ClipboardCheck className="w-4 h-4" /> Check Coverage</>
               )}
             </button>
           </form>
@@ -386,12 +435,16 @@ export default function SimulatePage() {
                 borderRadius: 20,
                 padding: '3rem',
                 textAlign: 'center',
-                color: 'var(--ink-muted)',
-                fontSize: 14,
                 background: 'var(--bg-soft)',
               }}
             >
-              Run a simulation to see payer-by-payer fit scores and blocker analysis.
+              <ClipboardCheck className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--ink-faint)' }} />
+              <p style={{ fontSize: 14, color: 'var(--ink-muted)', marginBottom: 8 }}>
+                Fill in the case details and click <strong>Check Coverage</strong> to see payer-by-payer access analysis.
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--ink-faint)' }}>
+                Or select an example case above to get started.
+              </p>
             </div>
           )}
 
@@ -410,10 +463,27 @@ export default function SimulatePage() {
 
           {results !== null && results.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={{ fontSize: 12, color: 'var(--ink-muted)' }}>
-                {results.length} payer{results.length !== 1 ? 's' : ''} analyzed — sorted by fit score
-              </p>
-              {results.map(r => <ResultCard key={r.case_id} result={r} />)}
+              {/* Summary bar */}
+              {bestFit && (
+                <div
+                  style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--line-soft)',
+                    borderRadius: 14, padding: '12px 16px',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    boxShadow: 'var(--shadow-xs)',
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#0F766E' }} />
+                  <div style={{ fontSize: 14, color: 'var(--ink-body)', lineHeight: 1.5 }}>
+                    <strong style={{ color: 'var(--ink-strong)' }}>{results.length} payers checked</strong>
+                    {' — '}
+                    best fit is <strong style={{ color: '#0F766E' }}>{bestFit.payer_name}</strong> ({coverageLabel(bestFit.coverage_status, bestFit.fit_score).toLowerCase()})
+                  </div>
+                </div>
+              )}
+
+              {results.map((r, i) => <ResultCard key={r.case_id} result={r} rank={i} />)}
             </div>
           )}
         </div>
