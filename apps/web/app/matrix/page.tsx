@@ -67,12 +67,12 @@ export default function MatrixPage() {
           <div>
             <h1
               className="font-serif-display text-4xl font-medium mb-2"
-              style={{ color: 'var(--text-primary)', letterSpacing: '-0.015em' }}
+              style={{ color: 'var(--ink-strong)', letterSpacing: '-0.015em' }}
             >
               Coverage Matrix
-              {loading && <RefreshCw className="inline-block w-5 h-5 ml-3 mb-0.5 animate-spin" style={{ color: 'var(--text-muted)' }} />}
+              {loading && <RefreshCw className="inline-block w-5 h-5 ml-3 mb-0.5 animate-spin" style={{ color: 'var(--ink-muted)' }} />}
             </h1>
-            <p className="text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm max-w-2xl" style={{ color: 'var(--ink-body)' }}>
               Plan-by-plan coverage posture for autoimmune / inflammatory infused biologics.
               Click any cell to open the policy dossier with source citations.
             </p>
@@ -89,9 +89,9 @@ export default function MatrixPage() {
                 <span key={l} className="flex items-baseline gap-1">
                   <span
                     className="font-semibold text-base"
-                    style={{ color: hl ? '#5BE7FF' : 'var(--text-primary)', fontFamily: '"IBM Plex Mono", monospace' }}
+                    style={{ color: hl ? '#0F766E' : 'var(--ink-strong)', fontFamily: '"IBM Plex Mono", monospace' }}
                   >{v}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{l}</span>
+                  <span style={{ color: 'var(--ink-muted)' }}>{l}</span>
                 </span>
               ))}
             </div>

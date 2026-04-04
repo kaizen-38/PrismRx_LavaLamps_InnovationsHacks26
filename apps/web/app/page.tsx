@@ -17,8 +17,6 @@ import {
 
 // ── Data ──────────────────────────────────────────────────────────────────
 
-const PAYER_LOGOS = ['UnitedHealthcare', 'Cigna', 'Aetna', 'UPMC', 'Blue Shield']
-
 const PAIN_CARDS = [
   {
     q: 'Which plans cover this drug?',
@@ -236,24 +234,6 @@ export default function LandingPage() {
           animate="show"
           className="relative z-10 max-w-xl"
         >
-          {/* Trust source strip */}
-          <motion.div variants={fadeUp} className="flex items-center gap-2 mb-8 flex-wrap">
-            {PAYER_LOGOS.map(p => (
-              <span
-                key={p}
-                className="text-mono-meta font-mono px-2.5 py-1 rounded-full"
-                style={{
-                  color: 'var(--ink-muted)',
-                  background: 'var(--bg-soft)',
-                  border: '1px solid var(--line-soft)',
-                  fontSize: 11,
-                }}
-              >
-                {p}
-              </span>
-            ))}
-          </motion.div>
-
           {/* Headline */}
           <motion.h1
             variants={fadeUp}
