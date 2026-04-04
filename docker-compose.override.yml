@@ -1,0 +1,17 @@
+# Development overrides
+version: '3.8'
+
+services:
+  api:
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./apps/api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+
+  postgres:
+    ports:
+      - "5432:5432"

@@ -10,19 +10,16 @@ import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import SimulatorForm from '@/components/simulator-form'
 import BlockerCard from '@/components/blocker-card'
-import { RouteGuard } from '@/components/role-gate'
 import type { SimulationCase, SimulationResult } from '@/lib/types'
 import { runSimulation } from '@/lib/api-client'
 import { getMockSimulationResults } from '@/lib/mock-simulate'
 
-// Suspense boundary required for useSearchParams in Next.js App Router
+// Public page — no RouteGuard. Auth only required for save/export actions.
 export default function SimulatePage() {
   return (
-    <RouteGuard capability="simulate" returnTo="/simulate">
-      <Suspense fallback={<PageShell><LoadingSkeleton /></PageShell>}>
-        <SimulateInner />
-      </Suspense>
-    </RouteGuard>
+    <Suspense fallback={<PageShell><LoadingSkeleton /></PageShell>}>
+      <SimulateInner />
+    </Suspense>
   )
 }
 
@@ -66,6 +63,17 @@ function SimulateInner() {
 
   return (
     <PageShell>
+      {/* PHI warning banner */}
+      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-300">
+        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+        </svg>
+        <span>
+          <strong>Synthetic cases only.</strong> Do not enter real patient names, insurance IDs, dates of birth, or any identifying information.
+          PrismRx uses public payer documents and synthetic demo data only — no PHI.
+        </span>
+      </div>
+
       {/* Page header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">

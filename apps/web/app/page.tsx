@@ -1,287 +1,521 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import {
-  LayoutGrid,
-  FlaskConical,
-  BarChart3,
-  ArrowRight,
-  CheckCircle2,
-} from 'lucide-react'
-
-const TableCellsIcon = LayoutGrid
-const BeakerIcon = FlaskConical
-const ChartBarSquareIcon = BarChart3
-const ArrowRightIcon = ArrowRight
-const CheckCircleIcon = CheckCircle2
+import { useRef } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
+import Image from 'next/image'
+import {
+  ArrowRight, LayoutGrid, FlaskConical, Radio,
+  CheckCircle2, Shield, FileText, Zap,
+} from 'lucide-react'
+import { PolicyPrism } from '@/components/3d/HeroScene'
+import {
+  fadeUp, fadeIn, stagger, staggerSlow,
+  sectionEntry, hoverLift, hoverButton, spring,
+  EASE_STANDARD,
+} from '@/lib/motion/presets'
 
-// ── Animation variants ────────────────────────────────────────────────────────
+// ── Data ──────────────────────────────────────────────────────────────────
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show:   { opacity: 1, y: 0 },
-}
+const PAYER_LOGOS = ['UnitedHealthcare', 'Cigna', 'Aetna', 'UPMC', 'Blue Shield']
 
-const stagger = {
-  hidden: {},
-  show:   { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
-}
-
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-const STATS = [
-  { label: 'Payers tracked',    value: '5' },
-  { label: 'Policy documents',  value: '25+' },
-  { label: 'Drug families',     value: '5' },
-  { label: 'Evidence citations', value: '50+' },
+const PAIN_CARDS = [
+  {
+    q: 'Which plans cover this drug?',
+    a: 'Cross-payer coverage matrix with status, friction score, and effective date.',
+    tag: 'Coverage Matrix',
+    accent: '#2B50FF',
+    bg: '#ECF1FF',
+  },
+  {
+    q: 'What criteria block approval?',
+    a: 'Step therapy, diagnosis gates, prior treatment requirements — all extracted from source policy text.',
+    tag: 'Case Simulator',
+    accent: '#C2410C',
+    bg: '#FFF1EB',
+  },
+  {
+    q: 'What changed this quarter?',
+    a: 'Semantic diff between policy versions. Tightening, loosening, and new requirements shown with citations.',
+    tag: 'Change Radar',
+    accent: '#0F766E',
+    bg: '#EAF8F4',
+  },
 ]
 
-const FEATURES = [
-  'Normalized Policy DNA objects — not raw PDFs',
-  'Source citations with page & section references',
-  'Friction score per drug × payer combination',
-  'Semantic version diffs — tightened vs. loosened',
-  'Synthetic case simulation — no PHI',
-  'Role-based access (Auth0) + voice brief (ElevenLabs)',
+const SHOWCASE_STEPS = [
+  {
+    step: '01',
+    heading: 'Compare coverage across all payers',
+    body: 'A single view of every payer\'s stance on a drug family — coverage status, prior auth flag, friction score, and effective date.',
+    image: '/showcase/matrix.png',
+    accent: '#2B50FF',
+    href: '/matrix',
+    cta: 'Open Coverage Matrix',
+  },
+  {
+    step: '02',
+    heading: 'Surface blockers before the PA request',
+    body: 'Enter a patient scenario — drug, diagnosis, prior treatments, site of care — and instantly see what criteria are unmet and what the fastest approvable path looks like.',
+    image: '/showcase/simulator.png',
+    accent: '#C2410C',
+    href: '/simulate',
+    cta: 'Try the Simulator',
+  },
+  {
+    step: '03',
+    heading: 'Know what changed — and why it matters',
+    body: 'Quarter-over-quarter policy diffs with human-readable explanations. Every change linked back to its source page.',
+    image: '/showcase/radar.png',
+    accent: '#0F766E',
+    href: '/radar',
+    cta: 'See Change Radar',
+  },
 ]
 
-const TESTIMONIAL_ROWS = [
-  { payer: 'Aetna',             drug: 'Infliximab',   status: 'Conditional', friction: 72 },
-  { payer: 'Blue Shield CA',    drug: 'Infliximab',   status: 'Preferred',   friction: 48 },
-  { payer: 'Cigna',             drug: 'Infliximab',   status: 'Non-Preferred',friction: 82 },
-  { payer: 'UnitedHealthcare',  drug: 'Vedolizumab',  status: 'Covered',     friction: 32 },
-  { payer: 'Blue Shield CA',    drug: 'Tocilizumab',  status: 'Not Covered', friction: 91 },
+const TRUST_ITEMS = [
+  { icon: Shield,       label: 'Public sources only',      body: 'Every policy pulled from publicly available payer portals. No proprietary data.' },
+  { icon: CheckCircle2, label: 'Citations for every field', body: 'Each extracted criterion traces back to an exact page and section in the source document.' },
+  { icon: FileText,     label: 'Synthetic cases only',     body: 'No real patient data, no PHI, no insurance identifiers are stored or processed.' },
+  { icon: Zap,          label: 'End-to-end pipeline',      body: 'Ingestion → extraction → normalization → comparison → change detection in one system.' },
 ]
 
-const STATUS_COLORS: Record<string, string> = {
-  'Covered':      'text-emerald-400',
-  'Preferred':    'text-blue-400',
-  'Conditional':  'text-amber-400',
-  'Non-Preferred':'text-orange-400',
-  'Not Covered':  'text-red-400',
+const PREVIEW_ROWS = [
+  { payer: 'UnitedHealthcare', drug: 'Infliximab',   status: 'Conditional', friction: 78, sc: '#B45309', sb: '#FFF6E8' },
+  { payer: 'Cigna',            drug: 'Rituximab',    status: 'Covered',     friction: 31, sc: '#0F766E', sb: '#EAF8F4' },
+  { payer: 'UPMC Health Plan', drug: 'Vedolizumab',  status: 'Conditional', friction: 61, sc: '#B45309', sb: '#FFF6E8' },
+  { payer: 'Aetna',            drug: 'Infliximab',   status: 'Conditional', friction: 82, sc: '#C2410C', sb: '#FFF1EB' },
+  { payer: 'Cigna',            drug: 'Abatacept IV', status: 'Preferred',   friction: 25, sc: '#2B50FF', sb: '#ECF1FF' },
+]
+
+function frictionColor(n: number) {
+  if (n >= 70) return '#C2410C'
+  if (n >= 45) return '#B45309'
+  return '#0F766E'
 }
 
-// ── Components ────────────────────────────────────────────────────────────────
+// ── Showcase step component ────────────────────────────────────────────────
 
-function CTACard({
-  href,
-  icon: Icon,
-  title,
-  description,
-  accent,
-  loadingCopy,
-  requiredRole,
-}: {
-  href: string
-  icon: React.ElementType
-  title: string
-  description: string
-  accent: 'cyan' | 'violet' | 'blue'
-  loadingCopy: string
-  requiredRole?: string
-}) {
-  const ACCENTS = {
-    cyan:   { border: 'hover:border-cyan-500/50', glow: 'hover:shadow-glow-cyan', icon: 'text-cyan-400 bg-cyan-500/10', tag: 'text-cyan-400' },
-    violet: { border: 'hover:border-violet-500/50', glow: 'hover:shadow-glow-violet', icon: 'text-violet-400 bg-violet-500/10', tag: 'text-violet-400' },
-    blue:   { border: 'hover:border-blue-500/50', glow: 'hover:shadow-[0_0_20px_rgba(59,130,246,0.25)]', icon: 'text-blue-400 bg-blue-500/10', tag: 'text-blue-400' },
-  }
-  const a = ACCENTS[accent]
+function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
+  const imgY = useTransform(scrollYProgress, [0, 1], [-24, 24])
+  const isEven = i % 2 === 0
 
   return (
-    <Link href={href} className="group block">
+    <div
+      ref={ref}
+      className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center py-20"
+      style={{ borderTop: i > 0 ? '1px solid var(--line-soft)' : 'none' }}
+    >
+      {/* Text — alternating sides */}
       <motion.div
-        variants={fadeUp}
-        whileHover={{ y: -3 }}
-        transition={{ duration: 0.18 }}
-        className={`
-          relative h-full flex flex-col gap-5 p-7 rounded-2xl
-          bg-navy-900 border border-navy-700
-          ${a.border} ${a.glow}
-          transition-all duration-200
-        `}
+        className={isEven ? 'order-1 lg:order-1' : 'order-1 lg:order-2'}
+        {...sectionEntry}
+        variants={stagger}
       >
-        {/* Role badge */}
-        {requiredRole && (
-          <div className="absolute top-4 right-4 flex items-center gap-1 rounded-full border border-navy-600 bg-navy-800/80 px-2 py-0.5 text-[10px] text-slate-500">
-            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
-            </svg>
-            {requiredRole}
-          </div>
-        )}
-
-        {/* Icon */}
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${a.icon}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-slate-100 mb-2">{title}</h3>
-          <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <span className={`text-xs font-mono ${a.tag}`}>{loadingCopy}</span>
-          <ArrowRightIcon className={`w-4 h-4 ${a.tag} opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-150`} />
-        </div>
+        <motion.div variants={fadeUp}>
+          <span
+            className="inline-block mb-4 text-mono-meta font-mono"
+            style={{ color: step.accent }}
+          >
+            {step.step}
+          </span>
+          <h3
+            className="text-h2 font-sans mb-5"
+            style={{ color: 'var(--ink-strong)', fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.1 }}
+          >
+            {step.heading}
+          </h3>
+          <p
+            className="text-body"
+            style={{ color: 'var(--ink-body)', lineHeight: 1.7, maxWidth: '48ch', marginBottom: '2rem' }}
+          >
+            {step.body}
+          </p>
+          <Link href={step.href}>
+            <motion.span
+              className="btn-primary inline-flex items-center gap-2 cursor-pointer"
+              style={{ background: step.accent }}
+              {...hoverButton}
+            >
+              {step.cta}
+              <ArrowRight className="w-4 h-4" />
+            </motion.span>
+          </Link>
+        </motion.div>
       </motion.div>
-    </Link>
+
+      {/* Image — parallax */}
+      <motion.div
+        className={`${isEven ? 'order-2 lg:order-2' : 'order-2 lg:order-1'} relative`}
+        style={{ y: imgY }}
+        initial={{ opacity: 0, y: 32 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: EASE_STANDARD, delay: 0.1 }}
+        viewport={{ once: true, amount: 0.2 }}
+      >
+        {/* Browser frame */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            border: '1px solid var(--line-mid)',
+            boxShadow: '0 32px 80px rgba(15,23,42,0.10)',
+          }}
+        >
+          {/* Browser chrome */}
+          <div
+            className="flex items-center gap-2 px-4 py-3"
+            style={{ background: 'var(--bg-soft)', borderBottom: '1px solid var(--line-soft)' }}
+          >
+            <div className="flex gap-1.5">
+              {['#FF5F5F','#FFBD2E','#28CA41'].map(c => (
+                <div key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />
+              ))}
+            </div>
+            <div
+              className="flex-1 mx-3 rounded-md px-3 py-1 text-xs font-mono"
+              style={{ background: 'var(--bg-surface)', color: 'var(--ink-muted)', border: '1px solid var(--line-soft)' }}
+            >
+              app.prismrx.io{step.href}
+            </div>
+          </div>
+          <Image
+            src={step.image}
+            alt={step.heading}
+            width={640}
+            height={420}
+            className="w-full object-cover"
+            style={{ display: 'block' }}
+          />
+        </div>
+
+        {/* Floating accent chip */}
+        <motion.div
+          className="absolute -bottom-4 -right-4"
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <span
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm"
+            style={{
+              color: step.accent,
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--line-mid)',
+              fontFamily: 'var(--font-ibm-plex-mono, monospace)',
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: step.accent }} />
+            Step {step.step}
+          </span>
+        </motion.div>
+      </motion.div>
+    </div>
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background grid + glow */}
-      <div className="absolute inset-0 bg-grid-navy opacity-40 pointer-events-none" />
-      <div className="absolute inset-0 bg-glow-cyan pointer-events-none" />
-      <div className="absolute inset-0 bg-glow-violet pointer-events-none" />
+    <div style={{ background: 'var(--bg-canvas)' }}>
 
-      <div className="relative mx-auto max-w-screen-xl px-6 pt-20 pb-32">
+      {/* ══ HERO ═══════════════════════════════════════════════════════════ */}
+      <section
+        className="relative flex flex-col items-start justify-center overflow-hidden"
+        style={{
+          minHeight: '100svh',
+          padding: '9rem 1.5rem 6rem',
+          maxWidth: '1440px',
+          margin: '0 auto',
+        }}
+      >
+        {/* Policy Prism — positioned right side */}
+        <PolicyPrism />
 
-        {/* ── Hero ─────────────────────────────────────────────────────────── */}
+        {/* Hero content — left side */}
         <motion.div
           variants={stagger}
           initial="hidden"
           animate="show"
-          className="text-center max-w-3xl mx-auto mb-20"
+          className="relative z-10 max-w-xl"
         >
-          <motion.div variants={fadeUp}>
-            <span className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/5 text-xs font-medium text-cyan-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              Innovation Hacks 2026 · Anton RX Track
-            </span>
+          {/* Trust source strip */}
+          <motion.div variants={fadeUp} className="flex items-center gap-2 mb-8 flex-wrap">
+            {PAYER_LOGOS.map(p => (
+              <span
+                key={p}
+                className="text-mono-meta font-mono px-2.5 py-1 rounded-full"
+                style={{
+                  color: 'var(--ink-muted)',
+                  background: 'var(--bg-soft)',
+                  border: '1px solid var(--line-soft)',
+                  fontSize: 11,
+                }}
+              >
+                {p}
+              </span>
+            ))}
           </motion.div>
 
+          {/* Headline */}
           <motion.h1
             variants={fadeUp}
-            className="text-5xl sm:text-6xl font-bold tracking-tight text-white mb-6 leading-[1.1]"
+            className="mb-6"
+            style={{
+              fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
+              fontWeight: 600,
+              color: 'var(--ink-strong)',
+              letterSpacing: '-0.04em',
+              lineHeight: 1.05,
+            }}
           >
-            Coverage intelligence
+            Drug coverage,
             <br />
-            <span className="text-gradient-prismrx">for medical benefit drugs</span>
+            <span
+              className="font-serif-accent"
+              style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
+            >
+              finally readable.
+            </span>
           </motion.h1>
 
+          {/* Subheadline */}
           <motion.p
             variants={fadeUp}
-            className="text-xl text-slate-400 leading-relaxed mb-4"
+            className="text-body-l mb-10"
+            style={{ color: 'var(--ink-body)', lineHeight: 1.65, maxWidth: '44ch' }}
           >
-            PrismRx turns fragmented payer policies into a{' '}
-            <span className="text-slate-200">searchable, comparable, and explainable</span>{' '}
-            workspace. Compare coverage posture across payers, simulate access barriers,
-            and track semantic policy drift — all grounded in source citations.
+            PrismRx ingests public payer policies and turns them into structured, queryable coverage intelligence — with every claim cited back to the source.
           </motion.p>
 
-          <motion.p variants={fadeUp} className="text-sm font-mono text-slate-600">
-            Public payer documents · Synthetic cases only · No PHI · HIPAA-aware architecture
-          </motion.p>
+          {/* CTAs */}
+          <motion.div variants={fadeUp} className="flex flex-wrap gap-3 mb-14">
+            <Link href="/matrix">
+              <motion.span
+                className="btn-primary inline-flex items-center gap-2 cursor-pointer"
+                {...hoverButton}
+              >
+                Explore Coverage Matrix
+                <ArrowRight className="w-4 h-4" />
+              </motion.span>
+            </Link>
+            <Link href="/radar">
+              <motion.span
+                className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
+                {...hoverButton}
+              >
+                See What Changed
+              </motion.span>
+            </Link>
+          </motion.div>
+
+          {/* Stat strip */}
+          <motion.div variants={fadeIn} className="flex flex-wrap gap-6">
+            {[
+              { v: '5 payers', l: 'indexed' },
+              { v: '25+ policies', l: 'structured' },
+              { v: '39×',   l: 'weekly prior auths / physician*' },
+            ].map(({ v, l }) => (
+              <div key={l}>
+                <div
+                  style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 600,
+                    color: 'var(--ink-strong)',
+                    letterSpacing: '-0.025em',
+                  }}
+                >
+                  {v}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--ink-muted)',
+                    marginTop: 2,
+                    fontFamily: 'var(--font-ibm-plex-mono, monospace)',
+                  }}
+                >
+                  {l}
+                </div>
+              </div>
+            ))}
+          </motion.div>
         </motion.div>
 
-        {/* ── Stats strip ──────────────────────────────────────────────────── */}
+        {/* Scroll hint */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.4 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-px mb-20 rounded-2xl overflow-hidden border border-navy-700 bg-navy-700"
+          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
         >
-          {STATS.map((stat) => (
-            <div key={stat.label} className="bg-navy-900 px-6 py-5 text-center">
-              <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-              <div className="text-xs text-slate-500">{stat.label}</div>
-            </div>
+          <div
+            className="w-px h-10 mx-auto"
+            style={{ background: 'linear-gradient(to bottom, var(--line-mid), transparent)' }}
+          />
+        </motion.div>
+      </section>
+
+      {/* ══ PAIN POINTS ════════════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <motion.div className="text-center mb-14" {...sectionEntry} variants={stagger}>
+            <motion.p variants={fadeUp} className="overline mb-3">What users actually need</motion.p>
+            <motion.h2
+              variants={fadeUp}
+              style={{
+                fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
+                fontWeight: 600,
+                color: 'var(--ink-strong)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+              }}
+            >
+              Three questions. One workspace.
+            </motion.h2>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-3 gap-5"
+            {...sectionEntry}
+            variants={stagger}
+          >
+            {PAIN_CARDS.map(({ q, a, tag, accent, bg }) => (
+              <motion.div
+                key={tag}
+                variants={fadeUp}
+                {...hoverLift}
+                className="card-policy p-8 flex flex-col gap-5"
+                style={{ paddingTop: '2.5rem' }}
+              >
+                <span
+                  className="inline-block px-2.5 py-1 rounded-full text-label font-semibold"
+                  style={{ color: accent, background: bg }}
+                >
+                  {tag}
+                </span>
+                <h3
+                  style={{
+                    fontSize: '1.1875rem',
+                    fontWeight: 600,
+                    color: 'var(--ink-strong)',
+                    letterSpacing: '-0.015em',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {q}
+                </h3>
+                <p style={{ fontSize: 15, color: 'var(--ink-body)', lineHeight: 1.65 }}>{a}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ══ PRODUCT SHOWCASE (Apple-style scrollytelling) ═══════════════════ */}
+      <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <motion.div className="text-center mb-6" {...sectionEntry} variants={stagger}>
+            <motion.p variants={fadeUp} className="overline mb-3">How it works</motion.p>
+            <motion.h2
+              variants={fadeUp}
+              style={{
+                fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
+                fontWeight: 600,
+                color: 'var(--ink-strong)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+                marginBottom: '1rem',
+              }}
+            >
+              From scattered policy text
+              <br />
+              <span
+                className="font-serif-accent"
+                style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
+              >
+                to structured access intelligence.
+              </span>
+            </motion.h2>
+          </motion.div>
+
+          {/* Scroll-animated product steps */}
+          {SHOWCASE_STEPS.map((step, i) => (
+            <ShowcaseStep key={step.step} step={step} i={i} />
           ))}
-        </motion.div>
+        </div>
+      </section>
 
-        {/* ── Three core CTAs ───────────────────────────────────────────────── */}
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-20"
-        >
-          <CTACard
-            href="/matrix"
-            icon={TableCellsIcon}
-            title="Compare a drug"
-            description="Instantly see which plans cover your drug, under what conditions, and with what administrative burden — across all payers in a single view."
-            accent="cyan"
-            loadingCopy="Decomposing payer language..."
-          />
-          <CTACard
-            href="/simulate"
-            icon={BeakerIcon}
-            title="Run a case"
-            description="Enter a synthetic patient scenario and surface approval blockers, missing evidence, and the fastest likely approvable path per payer."
-            accent="violet"
-            loadingCopy="Resolving biosimilar relationships..."
-            requiredRole="Coordinator"
-          />
-          <CTACard
-            href="/radar"
-            icon={ChartBarSquareIcon}
-            title="See what changed"
-            description="Track quarter-over-quarter policy drift. Understand whether access criteria tightened or loosened and which synthetic patient archetypes are now blocked."
-            accent="blue"
-            loadingCopy="Computing policy drift..."
-            requiredRole="Analyst"
-          />
-        </motion.div>
-
-        {/* ── Mini matrix preview ───────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.5 }}
-          className="mb-20"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest">
-              Live coverage snapshot
-            </h2>
+      {/* ══ MATRIX LIVE PREVIEW ══════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-page)', padding: '5rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <div
+            className="flex items-end justify-between mb-6 flex-wrap gap-4"
+          >
+            <div>
+              <p className="overline mb-1">Live data</p>
+              <h2
+                style={{
+                  fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
+                  fontWeight: 600,
+                  color: 'var(--ink-strong)',
+                  letterSpacing: '-0.025em',
+                }}
+              >
+                Coverage at a glance
+              </h2>
+            </div>
             <Link
               href="/matrix"
-              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+              className="inline-flex items-center gap-1 text-body-s font-medium"
+              style={{ color: 'var(--accent-blue)' }}
             >
-              Open full matrix <ArrowRightIcon className="w-3 h-3" />
+              Full matrix <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          <div className="rounded-2xl border border-navy-700 bg-navy-900 overflow-hidden">
-            <table className="w-full text-sm">
+          <motion.div
+            className="card overflow-hidden"
+            style={{ padding: 0, borderRadius: 20 }}
+            {...sectionEntry}
+            variants={fadeUp}
+          >
+            <table className="table-base w-full">
               <thead>
-                <tr className="border-b border-navy-700">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500">Payer</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500">Drug</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500">Status</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500">Friction</th>
+                <tr>
+                  {['Payer', 'Drug', 'Status', 'Friction'].map((h, i) => (
+                    <th key={h} style={{ textAlign: i === 3 ? 'right' : 'left' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {TESTIMONIAL_ROWS.map((row, i) => (
+                {PREVIEW_ROWS.map((row, i) => (
                   <tr
                     key={i}
-                    className="border-b border-navy-800 hover:bg-navy-800/50 transition-colors cursor-pointer"
-                    onClick={() => window.location.href = '/matrix'}
+                    className="cursor-pointer"
+                    onClick={() => (window.location.href = '/matrix')}
                   >
-                    <td className="px-4 py-3 text-slate-300 font-medium">{row.payer}</td>
-                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{row.drug}</td>
-                    <td className="px-4 py-3">
-                      <span className={`font-medium ${STATUS_COLORS[row.status] ?? 'text-slate-400'}`}>
+                    <td style={{ fontWeight: 500, color: 'var(--ink-strong)' }}>{row.payer}</td>
+                    <td style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)', fontSize: 13, color: 'var(--ink-muted)' }}>
+                      {row.drug}
+                    </td>
+                    <td>
+                      <span
+                        className="chip"
+                        style={{ color: row.sc, background: row.sb }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: row.sc }} />
                         {row.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td style={{ textAlign: 'right' }}>
                       <span
-                        className={`font-mono text-xs font-bold ${
-                          row.friction >= 70 ? 'text-red-400' :
-                          row.friction >= 45 ? 'text-amber-400' :
-                          'text-emerald-400'
-                        }`}
+                        style={{
+                          fontFamily: 'var(--font-ibm-plex-mono, monospace)',
+                          fontWeight: 500,
+                          fontSize: 14,
+                          color: frictionColor(row.friction),
+                        }}
                       >
                         {row.friction}
                       </span>
@@ -290,30 +524,112 @@ export default function LandingPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
+      </section>
 
-        {/* ── Feature list ─────────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.9, duration: 0.4 }}
-          className="max-w-2xl mx-auto"
-        >
-          <h2 className="text-center text-sm font-semibold text-slate-500 uppercase tracking-widest mb-8">
-            What&apos;s under the hood
-          </h2>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-2.5 text-sm text-slate-400">
-                <CheckCircleIcon className="w-4 h-4 text-cyan-500 flex-shrink-0 mt-0.5" />
-                {f}
-              </li>
+      {/* ══ TRUST ════════════════════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <motion.div className="text-center mb-14 mx-auto" style={{ maxWidth: '48ch' }} {...sectionEntry} variants={stagger}>
+            <motion.p variants={fadeUp} className="overline mb-3">Methodology</motion.p>
+            <motion.h2
+              variants={fadeUp}
+              style={{
+                fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                fontWeight: 600,
+                color: 'var(--ink-strong)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+              }}
+            >
+              Every claim cites its source.
+            </motion.h2>
+          </motion.div>
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+            {...sectionEntry}
+            variants={staggerSlow}
+          >
+            {TRUST_ITEMS.map(({ icon: Icon, label, body }) => (
+              <motion.div key={label} variants={fadeUp} className="card p-6 flex flex-col gap-4">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: 'var(--accent-blue-soft)' }}
+                >
+                  <Icon className="w-5 h-5" style={{ color: 'var(--accent-blue)' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)', marginBottom: 6, letterSpacing: '-0.01em' }}>
+                    {label}
+                  </p>
+                  <p style={{ fontSize: 14, color: 'var(--ink-muted)', lineHeight: 1.65 }}>{body}</p>
+                </div>
+              </motion.div>
             ))}
-          </ul>
-        </motion.div>
+          </motion.div>
+        </div>
+      </section>
 
-      </div>
+      {/* ══ CLOSING EDITORIAL BAND ═══════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-page)', padding: '8rem 1.5rem', textAlign: 'center' }}>
+        <motion.div
+          style={{ maxWidth: 760, margin: '0 auto' }}
+          {...sectionEntry}
+          variants={stagger}
+        >
+          <motion.p
+            variants={fadeUp}
+            className="font-serif-accent"
+            style={{
+              fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
+              fontStyle: 'italic',
+              color: 'var(--ink-strong)',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.15,
+              marginBottom: '1.5rem',
+            }}
+          >
+            Policies should be readable.<br />
+            Access should not depend on guesswork.
+          </motion.p>
+          <motion.p
+            variants={fadeUp}
+            className="text-body-l"
+            style={{ color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '44ch', margin: '0 auto 2.5rem' }}
+          >
+            Compare coverage. Inspect criteria. Trace evidence. Spot policy drift. All in one workspace.
+          </motion.p>
+          <motion.div variants={fadeUp} className="flex flex-wrap justify-center gap-3">
+            <Link href="/matrix">
+              <motion.span
+                className="btn-primary inline-flex items-center gap-2 cursor-pointer"
+                style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
+                {...hoverButton}
+              >
+                Start with the Matrix
+                <ArrowRight className="w-4 h-4" />
+              </motion.span>
+            </Link>
+            <Link href="/simulate">
+              <motion.span
+                className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
+                style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
+                {...hoverButton}
+              >
+                Try the Simulator
+              </motion.span>
+            </Link>
+          </motion.div>
+          <motion.p
+            variants={fadeIn}
+            style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: '3rem', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
+          >
+            * AMA 2025 Prior Authorization report
+          </motion.p>
+        </motion.div>
+      </section>
+
     </div>
   )
 }

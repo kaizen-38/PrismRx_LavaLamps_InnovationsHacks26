@@ -10,88 +10,89 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── PrismRx Brand Palette ──────────────────────────────
-        // Deep navy background family
-        navy: {
-          950: '#0a0f1e',  // page background
-          900: '#0d1528',  // surface / card background
-          800: '#111f38',  // elevated surface
-          700: '#1e2d4d',  // border / divider
-          600: '#2a3f6b',  // muted border
-          500: '#3d5a8a',  // subtle text on dark
+        // ── Surfaces (Paperlight Archive) ──────────────────────────────────
+        canvas:  '#FAFAF7',
+        page:    '#F6F8FB',
+        surface: '#FFFFFF',
+        soft:    '#F3F6FB',
+        'soft-2':'#EEF3F8',
+
+        // ── Ink ────────────────────────────────────────────────────────────
+        ink: {
+          strong:  '#111827',
+          body:    '#334155',
+          muted:   '#64748B',
+          faint:   '#94A3B8',
         },
-        // Cyan — primary interactive / accent
-        cyan: {
-          300: '#67e8f9',
-          400: '#22d3ee',
-          500: '#06b6d4',  // primary brand cyan
-          600: '#0891b2',
-          700: '#0e7490',
+
+        // ── Lines ──────────────────────────────────────────────────────────
+        line: {
+          soft:   '#E7EDF5',
+          mid:    '#D6E0EB',
+          strong: '#C6D4E1',
         },
-        // Violet — secondary accent / highlights
-        violet: {
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',  // primary brand violet
-          700: '#6d28d9',
-          800: '#5b21b6',
-        },
-        // Coverage status semantic colors
-        status: {
-          covered:     '#10b981',
-          conditional: '#f59e0b',
-          preferred:   '#3b82f6',
-          nonpreferred:'#f97316',
-          not_covered: '#ef4444',
-          unclear:     '#6b7280',
-        },
-        // Friction severity colors
-        friction: {
-          low:    '#10b981',
-          medium: '#f59e0b',
-          high:   '#ef4444',
+
+        // ── Accent ─────────────────────────────────────────────────────────
+        accent: {
+          blue:      '#2B50FF',
+          'blue-d':  '#1D4ED8',
+          'blue-s':  '#ECF1FF',
+          teal:      '#0F766E',
+          'teal-s':  '#EAF8F4',
+          amber:     '#B45309',
+          'amber-s': '#FFF6E8',
+          coral:     '#C2410C',
+          'coral-s': '#FFF1EB',
+          rose:      '#BE123C',
+          'rose-s':  '#FFF0F4',
         },
       },
+
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        sans:  ['var(--font-inter)', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'sans-serif'],
+        serif: ['var(--font-newsreader)', 'Georgia', 'serif'],
+        mono:  ['var(--font-ibm-plex-mono)', 'SF Mono', 'ui-monospace', 'monospace'],
       },
-      backgroundImage: {
-        'grid-navy': "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='none'/%3E%3Cpath d='M0 40V0H40' stroke='%231e2d4d' stroke-width='0.5'/%3E%3C/svg%3E\")",
-        'glow-cyan': 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(6,182,212,0.15) 0%, transparent 70%)',
-        'glow-violet': 'radial-gradient(ellipse 60% 40% at 50% 100%, rgba(124,58,237,0.1) 0%, transparent 70%)',
+
+      fontSize: {
+        'display-xl': ['88px', { lineHeight: '0.96', letterSpacing: '-0.045em', fontWeight: '600' }],
+        'display-l':  ['72px', { lineHeight: '0.98', letterSpacing: '-0.04em',  fontWeight: '600' }],
+        'h1':         ['56px', { lineHeight: '1.02', letterSpacing: '-0.035em', fontWeight: '600' }],
+        'h2':         ['40px', { lineHeight: '1.08', letterSpacing: '-0.03em',  fontWeight: '600' }],
+        'h3':         ['30px', { lineHeight: '1.14', letterSpacing: '-0.02em',  fontWeight: '600' }],
+        'h4':         ['24px', { lineHeight: '1.2',  letterSpacing: '-0.015em', fontWeight: '600' }],
+        'body-l':     ['19px', { lineHeight: '1.55', letterSpacing: '-0.01em',  fontWeight: '400' }],
+        'body':       ['17px', { lineHeight: '1.6',  letterSpacing: '-0.011em', fontWeight: '400' }],
+        'body-s':     ['15px', { lineHeight: '1.55', letterSpacing: '-0.008em', fontWeight: '400' }],
+        'label':      ['13px', { lineHeight: '1.35', letterSpacing: '0.02em',   fontWeight: '600' }],
+        'mono-meta':  ['12px', { lineHeight: '1.35', letterSpacing: '0.02em',   fontWeight: '500' }],
       },
-      animation: {
-        'fade-up':       'fadeUp 0.4s ease-out forwards',
-        'fade-in':       'fadeIn 0.3s ease-out forwards',
-        'slide-right':   'slideRight 0.35s cubic-bezier(0.32,0.72,0,1) forwards',
-        'pulse-slow':    'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',
-        'shimmer':       'shimmer 1.8s linear infinite',
-      },
-      keyframes: {
-        fadeUp: {
-          '0%':   { opacity: '0', transform: 'translateY(12px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        fadeIn: {
-          '0%':   { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideRight: {
-          '0%':   { transform: 'translateX(100%)' },
-          '100%': { transform: 'translateX(0)' },
-        },
-        shimmer: {
-          '0%':   { backgroundPosition: '-200% center' },
-          '100%': { backgroundPosition: '200% center' },
-        },
-      },
+
       boxShadow: {
-        'glow-cyan':   '0 0 20px rgba(6,182,212,0.25)',
-        'glow-violet': '0 0 20px rgba(124,58,237,0.25)',
-        'card':        '0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3)',
-        'card-hover':  '0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(6,182,212,0.1)',
+        xs: '0 4px 14px rgba(15, 23, 42, 0.04)',
+        sm: '0 8px 24px rgba(15, 23, 42, 0.06)',
+        md: '0 20px 50px rgba(15, 23, 42, 0.09)',
+        lg: '0 32px 80px rgba(15, 23, 42, 0.10)',
+      },
+
+      borderRadius: {
+        card:  '20px',
+        modal: '28px',
+        input: '14px',
+      },
+
+      maxWidth: {
+        reading: '68ch',
+        content: '1280px',
+        dense:   '1360px',
+        page:    '1440px',
+      },
+
+      spacing: {
+        '18': '4.5rem',
+        '22': '5.5rem',
+        '26': '6.5rem',
+        '30': '7.5rem',
       },
     },
   },

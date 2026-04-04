@@ -38,28 +38,40 @@ export const DEMO_USER: PrismUser = {
 }
 
 // ── Role helpers ──────────────────────────────────────────────────────────────
+//
+// Open-by-default model:
+//   guest       → read everything (matrix, compare, simulate, changes, sources, about)
+//   coordinator → guest + save cases, evidence pack, voice brief, share
+//   analyst     → guest + export, upload, advanced change controls, admin
+//
+// Auth is only required for workflow actions (save, export, upload, voice),
+// NOT for reading coverage intelligence.
 
-/**
- * Roles and their capabilities:
- *   analyst    → read matrix, view radar, export evidence pack
- *   coordinator→ all analyst + run simulator, voice brief, manage cases
- */
 const ROLE_CAPABILITIES: Record<UserRole, string[]> = {
-  guest:       [],
-  analyst:     ['matrix', 'radar', 'export'],
-  coordinator: ['matrix', 'radar', 'export', 'simulate', 'voice', 'cases'],
+  guest:       ['matrix', 'compare', 'simulate', 'changes', 'sources', 'policy'],
+  analyst:     ['matrix', 'compare', 'simulate', 'changes', 'sources', 'policy', 'export', 'upload', 'admin'],
+  coordinator: ['matrix', 'compare', 'simulate', 'changes', 'sources', 'policy', 'save', 'voice', 'evidence_pack', 'share'],
 }
 
 export function hasCapability(role: UserRole, capability: string): boolean {
   return ROLE_CAPABILITIES[role]?.includes(capability) ?? false
 }
 
-export function canSimulate(role: UserRole): boolean {
-  return hasCapability(role, 'simulate')
+/** Any logged-in user (any role) */
+export function isAuthenticated(role: UserRole): boolean {
+  return role !== 'guest'
 }
 
-export function canViewRadar(role: UserRole): boolean {
-  return hasCapability(role, 'radar')
+export function canExport(role: UserRole): boolean {
+  return hasCapability(role, 'export')
+}
+
+export function canSaveCase(role: UserRole): boolean {
+  return hasCapability(role, 'save')
+}
+
+export function canVoiceBrief(role: UserRole): boolean {
+  return hasCapability(role, 'voice')
 }
 
 // ── Auth0 client (real integration, activated when ENABLE_AUTH=true) ──────────

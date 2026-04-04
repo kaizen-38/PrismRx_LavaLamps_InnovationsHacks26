@@ -1,158 +1,149 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { LayoutGrid, Info } from 'lucide-react'
+import { LayoutGrid, Info, RefreshCw } from 'lucide-react'
 import { CoverageMatrix, MatrixFilterBar } from '@/components/coverage-matrix'
-import { fetchPolicy } from '@/lib/api-client'
-import { buildMockMatrix, DRUG_FAMILIES } from '@/lib/mock-data'
+import { fetchCoverageMatrix, fetchPolicy } from '@/lib/api-client'
+import { DRUG_FAMILIES } from '@/lib/mock-data'
 import type { CoverageMatrixData, PolicyDNA } from '@/lib/types'
-
-// ── Data loading (client-side mock) ──────────────────────────────────────────
-// The matrix data is loaded synchronously from mock-data on the client so
-// the page renders instantly without a network round-trip.
-// When the backend is live, swap buildMockMatrix() for fetchCoverageMatrix().
-
-const INITIAL_MATRIX = buildMockMatrix()
+import { fadeUp, stagger } from '@/lib/motion/presets'
 
 const DRUG_LABELS: Record<string, string> = Object.fromEntries(
   DRUG_FAMILIES.map((d) => [d.key, d.display_name]),
 )
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function MatrixPage() {
-  const [matrix]       = useState<CoverageMatrixData>(INITIAL_MATRIX)
+  const [matrix, setMatrix]           = useState<CoverageMatrixData | null>(null)
+  const [loading, setLoading]         = useState(true)
   const [filterPayer,  setFilterPayer]  = useState<string | null>(null)
   const [filterDrug,   setFilterDrug]   = useState<string | null>(null)
 
-  // Apply filters to the matrix data
-  const filteredMatrix = useMemo<CoverageMatrixData>(() => {
+  useEffect(() => {
+    fetchCoverageMatrix().then((data) => {
+      setMatrix(data)
+      setLoading(false)
+    })
+  }, [])
+
+  const filteredMatrix = useMemo<CoverageMatrixData | null>(() => {
+    if (!matrix) return null
     let rows = matrix.rows
     let payer_ids = matrix.payer_ids
-
-    if (filterDrug) {
-      rows = rows.filter((r) => r.drug_key === filterDrug)
-    }
+    if (filterDrug)  rows = rows.filter((r) => r.drug_key === filterDrug)
     if (filterPayer) {
       payer_ids = [filterPayer]
-      rows = rows.map((r) => ({
-        ...r,
-        cells: { [filterPayer]: r.cells[filterPayer] },
-      }))
+      rows = rows.map((r) => ({ ...r, cells: { [filterPayer]: r.cells[filterPayer] } }))
     }
-
     return { ...matrix, rows, payer_ids }
   }, [matrix, filterDrug, filterPayer])
 
-  // Called when a cell is clicked — loads the full PolicyDNA for the drawer
   async function handleCellClick(policyId: string): Promise<PolicyDNA | null> {
     return fetchPolicy(policyId)
   }
 
-  const totalCells    = matrix.rows.length * matrix.payer_ids.length
-  const coveredCount  = matrix.rows.flatMap((r) => Object.values(r.cells)).filter(
-    (c) => c.coverage_status === 'covered' || c.coverage_status === 'preferred',
-  ).length
+  const totalCells   = matrix ? matrix.rows.length * matrix.payer_ids.length : 0
+  const coveredCount = matrix
+    ? matrix.rows.flatMap((r) => Object.values(r.cells)).filter(
+        (c) => c.coverage_status === 'covered' || c.coverage_status === 'preferred',
+      ).length
+    : 0
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 py-10">
+    <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-28 pb-20">
 
       {/* ── Page header ── */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+        className="mb-10"
       >
-        <div className="flex items-center gap-2 mb-2">
-          <LayoutGrid className="w-5 h-5 text-cyan-500" />
-          <h1 className="text-2xl font-bold text-slate-100">Coverage Matrix</h1>
-        </div>
-        <p className="text-sm text-slate-500 max-w-2xl">
-          Plan-by-plan coverage posture for autoimmune / inflammatory infused biologics.
-          Each cell shows coverage status, access friction score, and prior authorization requirement.
-          Click any cell to open the policy detail drawer with source citations.
-        </p>
+        <motion.div variants={fadeUp} className="flex items-center gap-2 mb-1">
+          <p className="overline">Policy Intelligence</p>
+        </motion.div>
 
-        {/* Summary stats */}
-        <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
-          <Stat value={matrix.rows.length} label="drug families" />
-          <Stat value={matrix.payer_ids.length} label="payers" />
-          <Stat value={totalCells} label="policy × payer pairs" />
-          <Stat
-            value={`${Math.round((coveredCount / totalCells) * 100)}%`}
-            label="covered or preferred"
-            highlight
-          />
-        </div>
+        <motion.div variants={fadeUp} className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1
+              className="font-serif-display text-4xl font-medium mb-2"
+              style={{ color: 'var(--text-primary)', letterSpacing: '-0.015em' }}
+            >
+              Coverage Matrix
+              {loading && <RefreshCw className="inline-block w-5 h-5 ml-3 mb-0.5 animate-spin" style={{ color: 'var(--text-muted)' }} />}
+            </h1>
+            <p className="text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
+              Plan-by-plan coverage posture for autoimmune / inflammatory infused biologics.
+              Click any cell to open the policy dossier with source citations.
+            </p>
+          </div>
+
+          {matrix && (
+            <div className="flex items-center gap-5 text-sm flex-wrap">
+              {[
+                { v: matrix.rows.length, l: 'drug families' },
+                { v: matrix.payer_ids.length, l: 'payers' },
+                { v: totalCells, l: 'pairs' },
+                { v: totalCells > 0 ? `${Math.round((coveredCount / totalCells) * 100)}%` : '—', l: 'covered', hl: true },
+              ].map(({ v, l, hl }) => (
+                <span key={l} className="flex items-baseline gap-1">
+                  <span
+                    className="font-semibold text-base"
+                    style={{ color: hl ? '#5BE7FF' : 'var(--text-primary)', fontFamily: '"IBM Plex Mono", monospace' }}
+                  >{v}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{l}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </motion.div>
 
       {/* ── Filter bar ── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="mb-5"
-      >
-        <MatrixFilterBar
-          payers={matrix.payer_ids}
-          payerLabels={matrix.payer_labels}
-          drugKeys={matrix.rows.map((r) => r.drug_key)}
-          drugLabels={DRUG_LABELS}
-          selectedPayer={filterPayer}
-          selectedDrug={filterDrug}
-          onPayerChange={setFilterPayer}
-          onDrugChange={setFilterDrug}
-        />
-      </motion.div>
+      {matrix && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mb-6">
+          <MatrixFilterBar
+            payers={matrix.payer_ids}
+            payerLabels={matrix.payer_labels}
+            drugKeys={matrix.rows.map((r) => r.drug_key)}
+            drugLabels={{ ...DRUG_LABELS, ...Object.fromEntries(matrix.rows.map(r => [r.drug_key, r.drug_display_name])) }}
+            selectedPayer={filterPayer}
+            selectedDrug={filterDrug}
+            onPayerChange={setFilterPayer}
+            onDrugChange={setFilterDrug}
+          />
+        </motion.div>
+      )}
 
       {/* ── Matrix table ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-      >
-        <CoverageMatrix
-          data={filteredMatrix}
-          onCellClick={handleCellClick}
-        />
-      </motion.div>
+      {loading ? (
+        <div
+          className="rounded-2xl p-16 text-center text-sm"
+          style={{ background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+        >
+          <div className="shimmer w-24 h-4 rounded mx-auto mb-3" />
+          <div className="shimmer w-40 h-3 rounded mx-auto" />
+        </div>
+      ) : filteredMatrix ? (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <CoverageMatrix data={filteredMatrix} onCellClick={handleCellClick} />
+        </motion.div>
+      ) : null}
 
-      {/* ── Data posture notice ── */}
+      {/* ── Data notice ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="mt-6 flex items-start gap-2 text-xs text-slate-600"
+        className="mt-5 flex items-start gap-2 text-xs"
+        style={{ color: 'var(--text-muted)' }}
       >
-        <Info className="w-3.5 h-3.5 text-slate-700 flex-shrink-0 mt-0.5" />
+        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--border-strong)' }} />
         <p>
-          Data sourced from public payer policy documents (Aetna CPB, UHC Medical Drug Policies,
-          Blue Shield CA, Anthem, Cigna). Effective dates reflect the most recent available version.
-          No real patient data. Synthetic cases only.
-          Policy data is current as of Q1 2025 for most payers.
+          Data sourced from public payer policy documents (UnitedHealthcare, Cigna, UPMC Health Plan).
+          Effective dates reflect the most recent available version. No real patient data. Synthetic cases only.
         </p>
       </motion.div>
-
     </div>
-  )
-}
-
-function Stat({
-  value,
-  label,
-  highlight = false,
-}: {
-  value: string | number
-  label: string
-  highlight?: boolean
-}) {
-  return (
-    <span className="flex items-baseline gap-1">
-      <span className={highlight ? 'font-bold text-cyan-400' : 'font-semibold text-slate-300'}>
-        {value}
-      </span>
-      <span>{label}</span>
-    </span>
   )
 }
