@@ -46,15 +46,15 @@ db-shell:
 
 migrate:
 	@echo "Running migrations..."
-	docker-compose exec api alembic upgrade head
+	docker-compose exec api python run_alembic.py upgrade head
 
 migrate-down:
 	@echo "Rolling back migration..."
-	docker-compose exec api alembic downgrade -1
+	docker-compose exec api python run_alembic.py downgrade -1
 
 migrate-create:
 	@echo "Creating new migration..."
-	docker-compose exec api alembic revision --autogenerate -m "$(MSG)"
+	docker-compose exec api python run_alembic.py revision --autogenerate -m "$(MSG)"
 
 test:
 	@echo "Running tests..."
