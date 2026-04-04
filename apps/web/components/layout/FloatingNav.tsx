@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { LayoutGrid, FlaskConical, Radio } from 'lucide-react'
+import { LayoutGrid, FlaskConical, Radio, LogIn, LogOut, User } from 'lucide-react'
 import { spring } from '@/lib/motion/presets'
 
 const NAV_LINKS = [
@@ -13,9 +13,31 @@ const NAV_LINKS = [
   { href: '/radar',    label: 'Change Radar',  icon: Radio        },
 ]
 
+interface AuthUser {
+  name?: string
+  email?: string
+  picture?: string
+}
+
+function useAuth() {
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setUser(data?.user ?? null))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false))
+  }, [])
+
+  return { user, loading }
+}
+
 export function FloatingNav() {
-  const pathname  = usePathname()
+  const pathname        = usePathname()
   const [scrolled, setScrolled] = useState(false)
+  const { user, loading } = useAuth()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16)
@@ -59,14 +81,7 @@ export function FloatingNav() {
               </linearGradient>
             </defs>
           </svg>
-          <span
-            style={{
-              fontWeight: 600,
-              fontSize: 14,
-              color: '#111827',
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <span style={{ fontWeight: 600, fontSize: 14, color: '#111827', letterSpacing: '-0.02em' }}>
             PrismRx
           </span>
         </Link>
@@ -105,18 +120,66 @@ export function FloatingNav() {
         {/* Divider */}
         <div className="h-4 w-px mx-1" style={{ background: '#E7EDF5' }} />
 
-        {/* CTA */}
-        <Link href="/matrix">
-          <motion.span
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white cursor-pointer"
-            style={{ background: '#2B50FF', fontSize: 13, letterSpacing: '-0.01em' }}
-            whileHover={{ background: '#1D4ED8' }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ duration: 0.16 }}
-          >
-            Open App
-          </motion.span>
-        </Link>
+        {/* Auth section */}
+        {!loading && (
+          user ? (
+            <div className="flex items-center gap-1">
+              {/* User avatar / name */}
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '4px 10px', borderRadius: 9999,
+                  fontSize: 12, color: '#334155',
+                }}
+              >
+                {user.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name ?? 'User'}
+                    style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid #E7EDF5' }}
+                  />
+                ) : (
+                  <User className="w-3.5 h-3.5" style={{ color: '#64748B' }} />
+                )}
+                <span className="hidden sm:block" style={{ fontWeight: 500, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.name?.split(' ')[0] ?? user.email}
+                </span>
+              </div>
+              <a
+                href="/api/auth/logout"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 12px', borderRadius: 9999,
+                  fontSize: 12, fontWeight: 500,
+                  color: '#64748B',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#111827'; (e.currentTarget as HTMLElement).style.background = '#F3F6FB' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748B'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                <LogOut className="w-3 h-3" />
+                <span className="hidden sm:block">Sign out</span>
+              </a>
+            </div>
+          ) : (
+            <a
+              href="/api/auth/login"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 16px', borderRadius: 9999,
+                background: '#2B50FF',
+                fontSize: 13, fontWeight: 600, color: '#FFFFFF',
+                textDecoration: 'none', letterSpacing: '-0.01em',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1D4ED8'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2B50FF'}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              Sign in
+            </a>
+          )
+        )}
       </nav>
     </motion.header>
   )
