@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import type { SimulationCase, CareSetting } from '@/lib/types'
 import { DRUG_FAMILIES } from '@/lib/mock-data'
+import { cn } from '@/lib/utils'
 
 interface LabEntry {
   name: string
@@ -101,7 +102,7 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 rounded-xl border border-navy-700 bg-navy-900 p-6"
+      className="workspace-panel space-y-6 p-6"
     >
       {/* ── Drug ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -187,7 +188,7 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
       <div>
         <label className={labelCls}>
           Prior Therapies Failed
-          <span className="ml-1 text-slate-500 font-normal">(select all that apply)</span>
+          <span className="ml-1 font-normal" style={{ color: 'var(--ink-faint)' }}>(select all that apply)</span>
         </label>
         <div className="mt-2 flex flex-wrap gap-2">
           {COMMON_PRIOR_THERAPIES.map((t) => (
@@ -195,18 +196,14 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
               key={t}
               type="button"
               onClick={() => togglePriorTherapy(t)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                priorTherapies.includes(t)
-                  ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400'
-                  : 'border-navy-600 bg-navy-800 text-slate-400 hover:border-navy-500 hover:text-slate-200'
-              }`}
+              className={cn('workspace-chip', priorTherapies.includes(t) && 'workspace-chip--active')}
             >
               {t}
             </button>
           ))}
         </div>
         {priorTherapies.length > 0 && (
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs" style={{ color: 'var(--ink-muted)' }}>
             {priorTherapies.length} selected: {priorTherapies.join(', ')}
           </p>
         )}
@@ -219,7 +216,7 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
           <button
             type="button"
             onClick={addLab}
-            className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+            className="text-xs transition-colors workspace-link"
           >
             + Add lab
           </button>
@@ -232,7 +229,8 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
               key={l}
               type="button"
               onClick={() => setLabs((prev) => [...prev, { name: l, value: '' }])}
-              className="rounded border border-dashed border-navy-600 px-2 py-0.5 text-xs text-slate-500 hover:border-slate-500 hover:text-slate-300 transition-colors"
+              className="rounded border border-dashed px-2 py-0.5 text-xs transition-colors"
+              style={{ borderColor: 'var(--line-mid)', color: 'var(--ink-muted)' }}
             >
               + {l}
             </button>
@@ -259,7 +257,8 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
               <button
                 type="button"
                 onClick={() => removeLab(i)}
-                className="text-slate-600 hover:text-red-400 text-sm transition-colors px-1"
+                className="px-1 text-sm transition-colors hover:text-rose-600"
+                style={{ color: 'var(--ink-faint)' }}
                 aria-label="Remove lab"
               >
                 ×
@@ -284,7 +283,7 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-navy-950 font-semibold py-2.5 transition-colors text-sm"
+        className="w-full rounded-xl bg-cyan-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
@@ -301,9 +300,9 @@ export default function SimulatorForm({ initialDrugKey, onSubmit, loading }: Sim
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
 const inputCls =
-  'w-full rounded-lg border border-navy-600 bg-navy-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/40 transition-colors'
+  'workspace-field'
 
-const labelCls = 'block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1'
+const labelCls = 'mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-600'
 
 function Field({
   label,

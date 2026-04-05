@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Newsreader, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import Providers from './providers'
-import NavBar from '@/components/nav-bar'
+import AppChrome from '@/components/layout/site-layouts'
 
 // ── Fonts ──────────────────────────────────────────────────────────────────
 const inter = Inter({
@@ -55,36 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         }}
       >
         <Providers>
-          <NavBar />
-          <main>{children}</main>
-          <footer
-            style={{
-              borderTop: '1px solid var(--line-soft)',
-              marginTop: '6rem',
-              padding: '2.5rem 0',
-              background: 'var(--bg-canvas)',
-            }}
-          >
-            <div
-              style={{
-                maxWidth: '1280px',
-                margin: '0 auto',
-                padding: '0 1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '1rem',
-                fontSize: '13px',
-                color: 'var(--ink-muted)',
-              }}
-            >
-              <span>© 2026 PrismRx · Innovation Hacks 2026 · Anton RX Track</span>
-              <span style={{ fontFamily: 'var(--font-mono)' }}>
-                Public documents only · Synthetic cases · No PHI
-              </span>
-            </div>
-          </footer>
+          <AppChrome>{children}</AppChrome>
         </Providers>
       </body>
     </html>

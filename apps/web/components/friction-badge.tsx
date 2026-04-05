@@ -81,7 +81,7 @@ function FrictionGlyph({ score, level }: { score: number; level: 'low' | 'medium
           width={2.5}
           height={active ? 10 : 5}
           rx={0.5}
-          fill={active ? color : '#1e2d4d'}
+          fill={active ? color : '#d5dfeb'}
         />
       ))}
     </svg>
@@ -107,15 +107,15 @@ export function FrictionFactorList({ factors }: { factors: FrictionFactors }) {
 
   if (activeFactors.length === 0) {
     return (
-      <p className="text-xs text-slate-500 italic">No significant friction factors.</p>
+      <p className="text-xs italic" style={{ color: 'var(--ink-muted)' }}>No significant friction factors.</p>
     )
   }
 
   return (
     <ul className="flex flex-col gap-1">
       {activeFactors.map((f) => (
-        <li key={f} className="flex items-center gap-1.5 text-xs text-slate-400">
-          <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0" />
+        <li key={f} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--ink-body)' }}>
+          <span className="h-1 w-1 flex-shrink-0 rounded-full" style={{ background: 'var(--line-strong)' }} />
           {f}
         </li>
       ))}
@@ -135,7 +135,7 @@ export function FrictionScoreBar({ score }: { score: number }) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 rounded-full bg-navy-700 overflow-hidden">
+      <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--line-soft)' }}>
         <div
           className={cn('h-full rounded-full transition-all duration-500', TRACK_COLOR[level])}
           style={{ width: `${Math.min(score, 100)}%` }}
@@ -143,9 +143,9 @@ export function FrictionScoreBar({ score }: { score: number }) {
       </div>
       <span className={cn(
         'font-mono text-sm font-bold w-8 text-right',
-        level === 'low'    && 'text-emerald-400',
-        level === 'medium' && 'text-amber-400',
-        level === 'high'   && 'text-red-400',
+        level === 'low'    && 'text-emerald-700',
+        level === 'medium' && 'text-amber-700',
+        level === 'high'   && 'text-rose-700',
       )}>
         {score}
       </span>

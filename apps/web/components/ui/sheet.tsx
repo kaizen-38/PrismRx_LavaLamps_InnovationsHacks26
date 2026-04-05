@@ -48,7 +48,7 @@ export function Sheet({ open, onClose, title, description, children, className }
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-navy-950/70 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-[rgba(22,32,51,0.16)] backdrop-blur-[2px]"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -63,29 +63,31 @@ export function Sheet({ open, onClose, title, description, children, className }
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             className={cn(
               'fixed right-0 top-0 z-50 h-full w-full max-w-[520px]',
-              'bg-navy-900 border-l border-navy-700 shadow-2xl',
+              'bg-white border-l shadow-2xl',
               'flex flex-col',
               className,
             )}
+            style={{ borderColor: 'var(--line-soft)' }}
             role="dialog"
             aria-modal="true"
             aria-label={title}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-start justify-between gap-4 px-6 py-5 border-b border-navy-700">
+            <div className="flex-shrink-0 flex items-start justify-between gap-4 border-b px-6 py-5" style={{ borderColor: 'var(--line-soft)' }}>
               <div className="min-w-0">
                 {title && (
-                  <h2 className="text-base font-semibold text-slate-100 leading-snug">
+                  <h2 className="text-base font-semibold leading-snug" style={{ color: 'var(--ink-strong)' }}>
                     {title}
                   </h2>
                 )}
                 {description && (
-                  <p className="mt-0.5 text-sm text-slate-500 truncate">{description}</p>
+                  <p className="mt-0.5 truncate text-sm" style={{ color: 'var(--ink-muted)' }}>{description}</p>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-navy-800 transition-colors"
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-slate-100"
+                style={{ color: 'var(--ink-muted)' }}
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />

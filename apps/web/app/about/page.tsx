@@ -4,17 +4,16 @@
 // Public — no auth required. Server component (no interactivity needed).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { WorkspaceHeader, WorkspacePage } from '@/components/layout/workspace-page'
+
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-screen-lg px-6 py-10">
-      {/* Header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-slate-100 mb-3">About PrismRx</h1>
-        <p className="text-lg text-slate-400 leading-relaxed max-w-2xl">
-          PrismRx turns public payer policies into a searchable, comparable coverage intelligence
-          layer — with citations, synthetic case simulation, and policy change tracking.
-        </p>
-      </div>
+    <WorkspacePage width="narrow">
+      <WorkspaceHeader
+        eyebrow="Product Context"
+        title="About PrismRx"
+        description="PrismRx turns public payer policies into a searchable, comparable coverage intelligence layer with citations, synthetic case simulation, and policy change tracking."
+      />
 
       <div className="space-y-8">
 
@@ -54,11 +53,11 @@ export default function AboutPage() {
 
         {/* Compliance posture */}
         <Section title="Compliance Posture">
-          <div className="rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-4 py-3 mb-4">
-            <p className="text-sm font-semibold text-emerald-300 mb-1">
+          <div className="mb-4 rounded-lg border px-4 py-3" style={{ borderColor: 'rgba(16, 185, 129, 0.2)', background: 'var(--accent-mint-soft)' }}>
+            <p className="mb-1 text-sm font-semibold text-emerald-700">
               Public documents + synthetic demo data only · No PHI
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-600">
               Designed to be adaptable to regulated environments.
             </p>
           </div>
@@ -105,12 +104,12 @@ export default function AboutPage() {
             for a given drug-payer combination. Higher scores indicate more friction.
             It is computed from five factors:
           </p>
-          <ul className="list-disc list-inside space-y-1.5 text-slate-400 text-sm mt-2">
-            <li><strong className="text-slate-300">Prior failure count</strong> — number of required failed therapies</li>
-            <li><strong className="text-slate-300">Specialist gate</strong> — whether a specialist prescriber is required</li>
-            <li><strong className="text-slate-300">Lab/biomarker gate</strong> — whether baseline labs are required</li>
-            <li><strong className="text-slate-300">Site of care restriction</strong> — whether infusion setting is restricted</li>
-            <li><strong className="text-slate-300">Renewal complexity</strong> — short renewal intervals or heavy documentation burden</li>
+          <ul className="mt-2 list-inside list-disc space-y-1.5 text-sm text-slate-700">
+            <li><strong className="text-slate-800">Prior failure count</strong> — number of required failed therapies</li>
+            <li><strong className="text-slate-800">Specialist gate</strong> — whether a specialist prescriber is required</li>
+            <li><strong className="text-slate-800">Lab/biomarker gate</strong> — whether baseline labs are required</li>
+            <li><strong className="text-slate-800">Site of care restriction</strong> — whether infusion setting is restricted</li>
+            <li><strong className="text-slate-800">Renewal complexity</strong> — short renewal intervals or heavy documentation burden</li>
           </ul>
           <p className="mt-3">
             The score is synthetic and intended for comparison purposes within the PrismRx platform.
@@ -120,7 +119,7 @@ export default function AboutPage() {
 
         {/* Limitations */}
         <Section title="Limitations">
-          <ul className="list-disc list-inside space-y-1.5 text-slate-400 text-sm">
+          <ul className="list-inside list-disc space-y-1.5 text-sm text-slate-700">
             <li>Policy documents may not be fully current — effective dates are shown for each source.</li>
             <li>Extraction confidence varies by document structure and policy language clarity.</li>
             <li>The simulator uses synthetic scenarios and does not constitute clinical or legal advice.</li>
@@ -140,15 +139,15 @@ export default function AboutPage() {
           </p>
         </Section>
       </div>
-    </div>
+    </WorkspacePage>
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-navy-700 bg-navy-900 px-6 py-5">
-      <h2 className="text-sm font-bold text-slate-200 mb-4 pb-3 border-b border-navy-700">{title}</h2>
-      <div className="space-y-3 text-sm text-slate-400 leading-relaxed">{children}</div>
+    <div className="workspace-panel px-6 py-5">
+      <h2 className="mb-4 border-b pb-3 text-sm font-bold text-slate-900" style={{ borderColor: 'var(--line-soft)' }}>{title}</h2>
+      <div className="space-y-3 text-sm leading-relaxed text-slate-700">{children}</div>
     </div>
   )
 }
@@ -156,8 +155,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function DataPoint({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-3">
-      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider w-28 shrink-0 pt-0.5">{label}</span>
-      <p className="text-sm text-slate-300 flex-1">{value}</p>
+      <span className="w-28 shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600">{label}</span>
+      <p className="flex-1 text-sm text-slate-700">{value}</p>
     </div>
   )
 }

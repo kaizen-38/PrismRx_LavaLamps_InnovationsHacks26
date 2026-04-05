@@ -49,9 +49,9 @@ export const DEMO_USER: PrismUser = {
 //            Change Radar surfaces payer drift intelligence → analyst workflow.
 
 const ROLE_CAPABILITIES: Record<UserRole, string[]> = {
-  guest:       ['matrix', 'compare', 'sources', 'policy'],
-  coordinator: ['matrix', 'compare', 'sources', 'policy', 'simulate', 'save', 'voice', 'evidence_pack', 'share'],
-  analyst:     ['matrix', 'compare', 'sources', 'policy', 'changes', 'export', 'upload', 'admin'],
+  guest:       ['matrix', 'compare', 'sources', 'policy', 'about'],
+  coordinator: ['matrix', 'compare', 'sources', 'policy', 'about', 'simulate', 'save', 'voice', 'evidence_pack', 'share'],
+  analyst:     ['matrix', 'compare', 'sources', 'policy', 'about', 'changes', 'export', 'upload', 'admin'],
 }
 
 export function hasCapability(role: UserRole, capability: string): boolean {

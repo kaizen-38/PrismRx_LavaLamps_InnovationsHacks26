@@ -29,7 +29,12 @@ export default function VoiceBriefButton({ result, className }: VoiceBriefButton
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`flex items-center gap-1.5 rounded-lg border border-violet-700/60 bg-violet-900/20 px-3 py-1.5 text-xs font-medium text-violet-400 hover:bg-violet-900/40 transition-colors ${className ?? ''}`}
+        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${className ?? ''}`}
+        style={{
+          borderColor: 'rgba(124, 58, 237, 0.18)',
+          background: 'var(--accent-violet-soft)',
+          color: 'var(--accent-violet)',
+        }}
       >
         <MicIcon />
         Voice Brief
@@ -89,21 +94,22 @@ function VoiceBriefModal({
   return (
     /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(22,32,51,0.16)] p-4 backdrop-blur-[2px]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-lg rounded-2xl border border-navy-700 bg-navy-900 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border bg-white shadow-2xl" style={{ borderColor: 'var(--line-soft)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-navy-700">
+        <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--line-soft)' }}>
           <div className="flex items-center gap-2">
             <MicIcon className="w-4 h-4 text-violet-400" />
-            <h2 className="font-semibold text-slate-100 text-sm">Voice Brief</h2>
-            <span className="text-xs text-slate-500">· {result.payer_name}</span>
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--ink-strong)' }}>Voice Brief</h2>
+            <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>· {result.payer_name}</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-300 transition-colors"
+            className="transition-colors hover:text-slate-900"
+            style={{ color: 'var(--ink-muted)' }}
           >
             <CloseIcon />
           </button>
@@ -111,10 +117,10 @@ function VoiceBriefModal({
 
         {/* Brief text */}
         <div className="px-5 py-4">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--ink-muted)' }}>
             Generated PA Brief
           </p>
-          <div className="rounded-lg border border-navy-700 bg-navy-800 px-4 py-3 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+          <div className="whitespace-pre-wrap rounded-lg border px-4 py-3 text-sm leading-relaxed" style={{ borderColor: 'var(--line-soft)', background: 'var(--bg-soft)', color: 'var(--ink-body)' }}>
             {briefText}
           </div>
         </div>
@@ -161,7 +167,7 @@ function VoiceBriefModal({
               )}
             </>
           ) : (
-            <p className="text-xs text-slate-600 italic">
+            <p className="text-xs italic" style={{ color: 'var(--ink-muted)' }}>
               Voice playback disabled. Set NEXT_PUBLIC_ENABLE_VOICE=true to enable ElevenLabs.
             </p>
           )}
@@ -169,7 +175,8 @@ function VoiceBriefModal({
           <button
             type="button"
             onClick={() => navigator.clipboard?.writeText(briefText)}
-            className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="ml-auto flex items-center gap-1.5 text-xs transition-colors hover:text-slate-900"
+            style={{ color: 'var(--ink-muted)' }}
           >
             <CopyIcon />
             Copy

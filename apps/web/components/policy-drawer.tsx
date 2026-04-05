@@ -70,13 +70,13 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
       {/* ── Friction score ── */}
       <Section title="Access Friction Score" icon={Shield}>
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm mb-1">
-            <span className={cn(
-              'font-medium',
-              level === 'low'    && 'text-emerald-400',
-              level === 'medium' && 'text-amber-400',
-              level === 'high'   && 'text-red-400',
-            )}>
+        <div className="flex items-center justify-between text-sm mb-1">
+          <span className={cn(
+            'font-medium',
+            level === 'low'    && 'text-emerald-700',
+            level === 'medium' && 'text-amber-700',
+            level === 'high'   && 'text-rose-700',
+          )}>
               {level === 'low' ? 'Low administrative burden' :
                level === 'medium' ? 'Moderate administrative burden' :
                'High administrative burden'}
@@ -125,8 +125,8 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
             <CriteriaBlock label="Additional Notes">
               <ul className="space-y-1.5">
                 {policy.clinical_criteria.additional_notes.map((note, i) => (
-                  <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
-                    <span className="w-1 h-1 rounded-full bg-slate-600 flex-shrink-0 mt-1.5" />
+                  <li key={i} className="flex items-start gap-2 text-xs" style={{ color: 'var(--ink-body)' }}>
+                    <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full" style={{ background: 'var(--line-strong)' }} />
                     {note}
                   </li>
                 ))}
@@ -139,7 +139,7 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
       {/* ── Operational rules ── */}
       {hasOperationalRules(policy) && (
         <Section title="Operational Rules" icon={FileText}>
-          <div className="space-y-3 text-sm text-slate-400">
+          <div className="space-y-3 text-sm" style={{ color: 'var(--ink-body)' }}>
             {policy.operational_rules.site_of_care && (
               <OperationalRow
                 label="Site of Care"
@@ -174,7 +174,7 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         <Section title="HCPCS / J-Codes" icon={FileText}>
           <div className="flex flex-wrap gap-1.5">
             {policy.hcpcs_codes.map((code) => (
-              <span key={code} className="font-mono text-xs px-2 py-1 rounded-md bg-navy-800 text-cyan-400 border border-navy-700">
+              <span key={code} className="rounded-md border bg-cyan-50 px-2 py-1 font-mono text-xs text-cyan-700" style={{ borderColor: 'rgba(6, 182, 212, 0.18)' }}>
                 {code}
               </span>
             ))}
@@ -185,7 +185,7 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
       {/* ── Evidence citations ── */}
       {policy.evidence_citations.length > 0 && (
         <Section title="Evidence Citations" icon={ExternalLink}>
-          <p className="text-xs text-slate-600 mb-3">
+          <p className="mb-3 text-xs" style={{ color: 'var(--ink-muted)' }}>
             Source-backed evidence spans from public payer policy documents.
           </p>
           <div className="space-y-4">
@@ -201,15 +201,15 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
         <Section title="Drug Variants" icon={FileText}>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-slate-500 w-28 flex-shrink-0">Reference product</span>
-              <span className="text-slate-300 font-medium">{policy.reference_product}</span>
+              <span className="w-28 flex-shrink-0" style={{ color: 'var(--ink-muted)' }}>Reference product</span>
+              <span className="font-medium" style={{ color: 'var(--ink-strong)' }}>{policy.reference_product}</span>
             </div>
             {policy.biosimilars.length > 0 && (
               <div className="flex items-start gap-2">
-                <span className="text-slate-500 w-28 flex-shrink-0">Biosimilars</span>
+                <span className="w-28 flex-shrink-0" style={{ color: 'var(--ink-muted)' }}>Biosimilars</span>
                 <div className="flex flex-wrap gap-1">
                   {policy.biosimilars.map((b) => (
-                    <span key={b} className="text-xs px-2 py-0.5 rounded bg-navy-800 text-slate-300 border border-navy-700">
+                    <span key={b} className="rounded border bg-slate-50 px-2 py-0.5 text-xs" style={{ borderColor: 'var(--line-soft)', color: 'var(--ink-body)' }}>
                       {b}
                     </span>
                   ))}
@@ -221,9 +221,9 @@ function DrawerContent({ policy }: { policy: PolicyDNA }) {
       )}
 
       {/* ── Compliance notice ── */}
-      <div className="mt-2 p-3 rounded-lg bg-navy-800 border border-navy-700">
-        <p className="text-xs text-slate-600 leading-relaxed">
-          <span className="text-slate-500 font-medium">Data source: </span>
+      <div className="mt-2 rounded-lg border p-3" style={{ borderColor: 'var(--line-soft)', background: 'var(--bg-soft)' }}>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--ink-body)' }}>
+          <span style={{ color: 'var(--ink-muted)', fontWeight: 600 }}>Data source: </span>
           Public payer policy documents only. This workspace uses no real patient data.
           All patient scenarios are synthetic. Architecture designed for HIPAA-adaptable deployment.
         </p>
@@ -247,8 +247,8 @@ function Section({
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <Icon className="w-3.5 h-3.5 text-slate-500" />
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{title}</h3>
+        <Icon className="h-3.5 w-3.5" style={{ color: 'var(--accent-cyan-deep)' }} />
+        <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--ink-muted)' }}>{title}</h3>
       </div>
       {children}
     </div>
@@ -258,7 +258,7 @@ function Section({
 function CriteriaBlock({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium text-slate-500 mb-1.5">{label}</p>
+      <p className="mb-1.5 text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>{label}</p>
       {children}
     </div>
   )
@@ -272,10 +272,10 @@ function ChipList({
   variant?: 'default' | 'amber' | 'blue' | 'violet'
 }) {
   const COLORS = {
-    default: 'bg-navy-800 text-slate-300 border-navy-700',
-    amber:   'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    blue:    'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    violet:  'bg-violet-500/10 text-violet-300 border-violet-500/20',
+    default: 'bg-slate-50 text-slate-700 border-slate-200',
+    amber:   'bg-amber-50 text-amber-700 border-amber-200',
+    blue:    'bg-cyan-50 text-cyan-700 border-cyan-200',
+    violet:  'bg-violet-50 text-violet-700 border-violet-200',
   }
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -304,10 +304,10 @@ function OperationalRow({
   highlight?: boolean
 }) {
   return (
-    <div className={cn('flex items-start gap-3 p-2.5 rounded-lg', highlight ? 'bg-amber-500/5 border border-amber-500/15' : '')}>
-      <span className="text-slate-500 text-xs w-28 flex-shrink-0 pt-0.5">{label}</span>
-      <span className={cn('text-xs leading-relaxed', highlight ? 'text-amber-300' : 'text-slate-300')}>
-        {highlight && <AlertTriangle className="w-3 h-3 inline-block mr-1 -mt-0.5 text-amber-400" />}
+    <div className={cn('flex items-start gap-3 rounded-lg p-2.5', highlight && 'border bg-amber-50')} style={highlight ? { borderColor: 'rgba(217, 119, 6, 0.16)' } : undefined}>
+      <span className="w-28 flex-shrink-0 pt-0.5 text-xs" style={{ color: 'var(--ink-muted)' }}>{label}</span>
+      <span className={cn('text-xs leading-relaxed', highlight ? 'text-amber-700' : 'text-slate-700')}>
+        {highlight && <AlertTriangle className="mr-1 inline-block h-3 w-3 -mt-0.5 text-amber-600" />}
         {value}
       </span>
     </div>
@@ -316,17 +316,17 @@ function OperationalRow({
 
 function CitationCard({ citation }: { citation: Citation }) {
   return (
-    <div className="rounded-lg border border-navy-700 bg-navy-800/50 overflow-hidden">
+    <div className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--line-soft)', background: 'var(--bg-soft)' }}>
       {/* Source header — trust proof */}
-      <div className="px-3 py-2 border-b border-navy-700 flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2" style={{ borderColor: 'var(--line-soft)' }}>
         <div className="flex items-center gap-1.5 min-w-0">
           <FileText className="w-3 h-3 text-cyan-500 flex-shrink-0" />
-          <span className="text-xs font-medium text-cyan-400 truncate">{citation.source_label}</span>
+          <span className="truncate text-xs font-medium text-cyan-700">{citation.source_label}</span>
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0 text-xs text-slate-600">
+        <div className="flex flex-shrink-0 items-center gap-1.5 text-xs" style={{ color: 'var(--ink-muted)' }}>
           {citation.page && <span className="font-mono">p.{citation.page}</span>}
           {citation.section && (
-            <span className="hidden sm:block text-slate-700 truncate max-w-[120px]" title={citation.section}>
+            <span className="hidden max-w-[120px] truncate sm:block" title={citation.section}>
               § {citation.section}
             </span>
           )}
@@ -334,7 +334,8 @@ function CitationCard({ citation }: { citation: Citation }) {
             href={citation.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-600 hover:text-cyan-400 transition-colors"
+            className="transition-colors hover:text-cyan-700"
+            style={{ color: 'var(--ink-muted)' }}
             aria-label="Open source document"
           >
             <ExternalLink className="w-3 h-3" />
@@ -344,15 +345,15 @@ function CitationCard({ citation }: { citation: Citation }) {
 
       {/* Quote */}
       <blockquote className="px-3 py-2.5">
-        <p className="text-xs text-slate-400 leading-relaxed italic">
+        <p className="text-xs leading-relaxed italic" style={{ color: 'var(--ink-body)' }}>
           &ldquo;{citation.quote}&rdquo;
         </p>
       </blockquote>
 
       {/* Effective date */}
-      <div className="px-3 py-1.5 border-t border-navy-700 flex items-center gap-1.5">
-        <Calendar className="w-3 h-3 text-slate-700" />
-        <span className="text-xs text-slate-600">
+      <div className="flex items-center gap-1.5 border-t px-3 py-1.5" style={{ borderColor: 'var(--line-soft)' }}>
+        <Calendar className="h-3 w-3" style={{ color: 'var(--ink-faint)' }} />
+        <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>
           Effective {formatDate(citation.effective_date)}
         </span>
       </div>

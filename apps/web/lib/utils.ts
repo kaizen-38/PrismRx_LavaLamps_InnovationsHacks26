@@ -20,21 +20,21 @@ export const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
 }
 
 export const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
-  covered:      'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30',
-  conditional:  'bg-amber-500/15 text-amber-400 ring-amber-500/30',
-  preferred:    'bg-blue-500/15 text-blue-400 ring-blue-500/30',
-  nonpreferred: 'bg-orange-500/15 text-orange-400 ring-orange-500/30',
-  not_covered:  'bg-red-500/15 text-red-400 ring-red-500/30',
-  unclear:      'bg-gray-500/15 text-gray-400 ring-gray-500/30',
+  covered:      'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  conditional:  'bg-amber-50 text-amber-700 ring-amber-200',
+  preferred:    'bg-cyan-50 text-cyan-700 ring-cyan-200',
+  nonpreferred: 'bg-orange-50 text-orange-700 ring-orange-200',
+  not_covered:  'bg-rose-50 text-rose-700 ring-rose-200',
+  unclear:      'bg-slate-100 text-slate-600 ring-slate-200',
 }
 
 export const COVERAGE_STATUS_DOT: Record<CoverageStatus, string> = {
-  covered:      'bg-emerald-400',
-  conditional:  'bg-amber-400',
-  preferred:    'bg-blue-400',
-  nonpreferred: 'bg-orange-400',
-  not_covered:  'bg-red-400',
-  unclear:      'bg-gray-400',
+  covered:      'bg-emerald-500',
+  conditional:  'bg-amber-500',
+  preferred:    'bg-cyan-500',
+  nonpreferred: 'bg-orange-500',
+  not_covered:  'bg-rose-500',
+  unclear:      'bg-slate-400',
 }
 
 // ── Friction score helpers ────────────────────────────────────────────────────
@@ -52,9 +52,9 @@ export const FRICTION_LEVEL_LABEL: Record<'low' | 'medium' | 'high', string> = {
 }
 
 export const FRICTION_LEVEL_COLOR: Record<'low' | 'medium' | 'high', string> = {
-  low:    'text-emerald-400 bg-emerald-500/10',
-  medium: 'text-amber-400 bg-amber-500/10',
-  high:   'text-red-400 bg-red-500/10',
+  low:    'text-emerald-700 bg-emerald-50',
+  medium: 'text-amber-700 bg-amber-50',
+  high:   'text-rose-700 bg-rose-50',
 }
 
 // ── Change direction helpers ──────────────────────────────────────────────────
@@ -68,17 +68,17 @@ export const CHANGE_DIRECTION_LABEL: Record<ChangeDirection, string> = {
 }
 
 export const CHANGE_DIRECTION_COLOR: Record<ChangeDirection, string> = {
-  tightened: 'text-red-400 bg-red-500/10',
-  loosened:  'text-emerald-400 bg-emerald-500/10',
-  unchanged: 'text-gray-400 bg-gray-500/10',
-  added:     'text-blue-400 bg-blue-500/10',
-  removed:   'text-orange-400 bg-orange-500/10',
+  tightened: 'text-rose-700 bg-rose-50',
+  loosened:  'text-emerald-700 bg-emerald-50',
+  unchanged: 'text-slate-600 bg-slate-100',
+  added:     'text-cyan-700 bg-cyan-50',
+  removed:   'text-amber-700 bg-amber-50',
 }
 
 export const CHANGE_IMPACT_COLOR: Record<ChangeImpact, string> = {
-  high:   'text-red-400',
-  medium: 'text-amber-400',
-  low:    'text-gray-400',
+  high:   'text-rose-700',
+  medium: 'text-amber-700',
+  low:    'text-slate-600',
 }
 
 // ── Date formatting ───────────────────────────────────────────────────────────

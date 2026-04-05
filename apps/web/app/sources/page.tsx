@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { MOCK_POLICIES, DRUG_FAMILIES, PAYERS } from '@/lib/mock-data'
+import { WorkspaceHeader, WorkspaceMetricCard, WorkspacePage } from '@/components/layout/workspace-page'
 
 // Build the source manifest from mock policies
 const SOURCES = (() => {
@@ -35,25 +36,18 @@ const DRUG_NAMES = DRUG_FAMILIES.map(d => d.display_name)
 
 export default function SourcesPage() {
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-10">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-700">
-            <DocIcon />
-          </span>
-          <h1 className="text-2xl font-bold text-slate-100">Sources</h1>
-        </div>
-        <p className="text-sm text-slate-400 max-w-2xl">
-          PrismRx indexes publicly available payer clinical policy bulletins and medical drug
-          policies. All coverage intelligence is grounded in these source documents.
-        </p>
-      </div>
+    <WorkspacePage>
+      <WorkspaceHeader
+        eyebrow="Source Traceability"
+        title="Sources"
+        description="PrismRx indexes publicly available payer clinical policy bulletins and medical drug policies. All coverage intelligence is grounded in these source documents."
+        icon={<DocIcon />}
+      />
 
       {/* Data posture banner */}
-      <div className="mb-8 rounded-xl border border-emerald-800/40 bg-emerald-950/20 px-5 py-4 space-y-1">
-        <p className="text-sm font-semibold text-emerald-300">Public documents only · Synthetic cases · No PHI</p>
-        <p className="text-xs text-slate-500">
+      <div className="workspace-panel mb-8 px-5 py-4">
+        <p className="text-sm font-semibold text-emerald-700">Public documents only · Synthetic cases · No PHI</p>
+        <p className="mt-1 text-xs" style={{ color: 'var(--ink-muted)' }}>
           PrismRx uses only publicly available payer policy documents. No member data, claims data, or patient records
           are ingested or stored. Synthetic patient scenarios are used exclusively for the simulation feature.
         </p>
@@ -61,35 +55,35 @@ export default function SourcesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <StatCard label="Source documents" value={SOURCES.length.toString()} />
-        <StatCard label="Payers covered" value={PAYER_NAMES.length.toString()} />
-        <StatCard label="Drug families" value={DRUG_NAMES.length.toString()} />
-        <StatCard label="Data type" value="Public" color="text-emerald-400" />
+        <WorkspaceMetricCard label="Source documents" value={SOURCES.length.toString()} />
+        <WorkspaceMetricCard label="Payers covered" value={PAYER_NAMES.length.toString()} />
+        <WorkspaceMetricCard label="Drug families" value={DRUG_NAMES.length.toString()} />
+        <WorkspaceMetricCard label="Data type" value="Public" tone="success" />
       </div>
 
       {/* Coverage scope */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="rounded-xl border border-navy-700 bg-navy-900 px-5 py-4">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Payers Indexed</h2>
+        <div className="workspace-panel px-5 py-4">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Payers Indexed</h2>
           <div className="space-y-1.5">
             {PAYER_NAMES.map(name => (
-              <div key={name} className="flex items-center gap-2 text-sm text-slate-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+              <div key={name} className="flex items-center gap-2 text-sm text-slate-700">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
                 {name}
               </div>
             ))}
           </div>
         </div>
-        <div className="rounded-xl border border-navy-700 bg-navy-900 px-5 py-4">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Drug Families Covered</h2>
+        <div className="workspace-panel px-5 py-4">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Drug Families Covered</h2>
           <div className="space-y-1.5">
             {DRUG_FAMILIES.map(d => (
               <div key={d.key} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                <div className="flex items-center gap-2 text-slate-700">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
                   {d.display_name}
                 </div>
-                <span className="text-xs text-slate-500 font-mono">{d.mechanism}</span>
+                <span className="font-mono text-xs text-slate-500">{d.mechanism}</span>
               </div>
             ))}
           </div>
@@ -97,33 +91,33 @@ export default function SourcesPage() {
       </div>
 
       {/* Source document list */}
-      <div className="rounded-xl border border-navy-700 bg-navy-900 overflow-hidden">
-        <div className="px-5 py-4 border-b border-navy-700 flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+      <div className="workspace-panel overflow-hidden">
+        <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--line-soft)', background: 'var(--bg-soft)' }}>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-600">
             Source Document Manifest ({SOURCES.length} documents)
           </h2>
-          <span className="text-xs text-slate-500 font-mono">Effective dates shown</span>
+          <span className="font-mono text-xs text-slate-500">Effective dates shown</span>
         </div>
-        <div className="divide-y divide-navy-800">
+        <div className="divide-y" style={{ borderColor: 'var(--line-soft)' }}>
           {SOURCES.map((s, i) => (
-            <div key={i} className="px-5 py-3 flex items-start justify-between gap-4 hover:bg-navy-800/40 transition-colors">
+            <div key={i} className="flex items-start justify-between gap-4 px-5 py-3 transition-colors hover:bg-slate-50">
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-200 truncate">{s.label}</p>
+                <p className="truncate text-sm text-slate-900">{s.label}</p>
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="text-xs text-slate-500">{s.payer}</span>
-                  <span className="text-xs text-slate-600">·</span>
+                  <span className="text-xs text-slate-400">·</span>
                   <span className="text-xs text-slate-500">{s.drug}</span>
-                  <span className="text-xs text-slate-600">·</span>
-                  <span className="text-xs font-mono text-slate-500">{s.version}</span>
+                  <span className="text-xs text-slate-400">·</span>
+                  <span className="font-mono text-xs text-slate-500">{s.version}</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs font-mono text-slate-500">{s.effective_date}</span>
+                <span className="font-mono text-xs text-slate-500">{s.effective_date}</span>
                 <a
                   href={s.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                  className="workspace-link text-xs"
                 >
                   View ↗
                 </a>
@@ -134,9 +128,9 @@ export default function SourcesPage() {
       </div>
 
       {/* Methodology note */}
-      <div className="mt-8 rounded-xl border border-navy-700 bg-navy-900 px-5 py-5 space-y-3">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Methodology</h2>
-        <div className="space-y-2 text-sm text-slate-400 leading-relaxed">
+      <div className="workspace-panel mt-8 space-y-3 px-5 py-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-600">Methodology</h2>
+        <div className="space-y-2 text-sm leading-relaxed text-slate-700">
           <p>
             PrismRx ingests PDF and HTML policy documents using an LLM-powered extraction pipeline.
             Each extracted criterion is linked to its source page and section. Confidence scores
@@ -152,20 +146,11 @@ export default function SourcesPage() {
             source content — extracted facts are attributed to exact page/section references.
           </p>
         </div>
-        <a href="/about" className="inline-block text-xs text-cyan-400 hover:text-cyan-300 transition-colors mt-1">
+        <a href="/about" className="workspace-link mt-1 inline-block text-xs">
           Full methodology and compliance posture →
         </a>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ label, value, color = 'text-slate-100' }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="rounded-xl border border-navy-700 bg-navy-900 px-4 py-3">
-      <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-bold font-mono mt-0.5 ${color}`}>{value}</p>
-    </div>
+    </WorkspacePage>
   )
 }
 

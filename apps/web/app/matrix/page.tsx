@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { LayoutGrid, Info, RefreshCw } from 'lucide-react'
+import { Info, RefreshCw } from 'lucide-react'
 import { CoverageMatrix, MatrixFilterBar } from '@/components/coverage-matrix'
+import { WorkspacePage, WorkspaceHeader, WorkspaceMetricCard } from '@/components/layout/workspace-page'
 import { fetchCoverageMatrix, fetchPolicy } from '@/lib/api-client'
 import { DRUG_FAMILIES } from '@/lib/mock-data'
 import type { CoverageMatrixData, PolicyDNA } from '@/lib/types'
@@ -50,59 +51,34 @@ export default function MatrixPage() {
     : 0
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 56px)', background: 'var(--bg-page)' }}>
-    <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-10 pb-20">
-
-      {/* ── Page header ── */}
-      <motion.div
-        variants={stagger}
-        initial="hidden"
-        animate="show"
-        className="mb-10"
-      >
-        <motion.div variants={fadeUp} className="flex items-center gap-2 mb-1">
-          <p className="overline">Policy Intelligence</p>
+    <WorkspacePage width="wide">
+      <motion.div variants={stagger} initial="hidden" animate="show">
+        <motion.div variants={fadeUp}>
+          <WorkspaceHeader
+            eyebrow="Policy Intelligence"
+            title="Coverage Matrix"
+            description="Plan-by-plan coverage posture for autoimmune and inflammatory infused biologics. Click any cell to inspect the policy dossier with source citations."
+            aside={
+              matrix ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <WorkspaceMetricCard label="Drug families" value={matrix.rows.length} />
+                  <WorkspaceMetricCard label="Payers" value={matrix.payer_ids.length} />
+                  <WorkspaceMetricCard label="Pairs" value={totalCells} />
+                  <WorkspaceMetricCard
+                    label="Covered"
+                    value={totalCells > 0 ? `${Math.round((coveredCount / totalCells) * 100)}%` : '—'}
+                    tone="accent"
+                    meta={loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+                  />
+                </div>
+              ) : null
+            }
+          />
         </motion.div>
-
-        <motion.div variants={fadeUp} className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <h1
-              className="font-serif-display text-4xl font-medium mb-2"
-              style={{ color: 'var(--text-primary)', letterSpacing: '-0.015em' }}
-            >
-              Coverage Matrix
-              {loading && <RefreshCw className="inline-block w-5 h-5 ml-3 mb-0.5 animate-spin" style={{ color: 'var(--text-muted)' }} />}
-            </h1>
-            <p className="text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
-              Plan-by-plan coverage posture for autoimmune / inflammatory infused biologics.
-              Click any cell to open the policy dossier with source citations.
-            </p>
-          </div>
-
-          {matrix && (
-            <div className="flex items-center gap-5 text-sm flex-wrap">
-              {[
-                { v: matrix.rows.length, l: 'drug families' },
-                { v: matrix.payer_ids.length, l: 'payers' },
-                { v: totalCells, l: 'pairs' },
-                { v: totalCells > 0 ? `${Math.round((coveredCount / totalCells) * 100)}%` : '—', l: 'covered', hl: true },
-              ].map(({ v, l, hl }) => (
-                <span key={l} className="flex items-baseline gap-1">
-                  <span
-                    className="font-semibold text-base"
-                    style={{ color: hl ? '#5BE7FF' : 'var(--text-primary)', fontFamily: '"IBM Plex Mono", monospace' }}
-                  >{v}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{l}</span>
-                </span>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      </motion.div>
 
       {/* ── Filter bar ── */}
       {matrix && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mb-6">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mb-6 workspace-panel px-4 py-4 sm:px-5">
           <MatrixFilterBar
             payers={matrix.payer_ids}
             payerLabels={matrix.payer_labels}
@@ -119,8 +95,8 @@ export default function MatrixPage() {
       {/* ── Matrix table ── */}
       {loading ? (
         <div
-          className="rounded-2xl p-16 text-center text-sm"
-          style={{ background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+          className="workspace-panel p-16 text-center text-sm"
+          style={{ color: 'var(--text-muted)' }}
         >
           <div className="shimmer w-24 h-4 rounded mx-auto mb-3" />
           <div className="shimmer w-40 h-3 rounded mx-auto" />
@@ -145,7 +121,7 @@ export default function MatrixPage() {
           Effective dates reflect the most recent available version. No real patient data. Synthetic cases only.
         </p>
       </motion.div>
-    </div>
-    </div>
+      </motion.div>
+    </WorkspacePage>
   )
 }

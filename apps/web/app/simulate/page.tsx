@@ -11,6 +11,7 @@ import { useSearchParams } from 'next/navigation'
 import SimulatorForm from '@/components/simulator-form'
 import BlockerCard from '@/components/blocker-card'
 import { AccessSheet } from '@/components/role-gate'
+import { WorkspaceHeader, WorkspacePage } from '@/components/layout/workspace-page'
 import type { SimulationCase, SimulationResult } from '@/lib/types'
 import { runSimulation } from '@/lib/api-client'
 import { getMockSimulationResults } from '@/lib/mock-simulate'
@@ -18,17 +19,7 @@ import { getMockSimulationResults } from '@/lib/mock-simulate'
 export default function SimulatePage() {
   return (
     <Suspense fallback={<PageShell><LoadingSkeleton /></PageShell>}>
-      <AccessSheet
-        capability="simulate"
-        returnTo="/simulate"
-        title="Policy Fit Simulator"
-        description="Run synthetic prior-auth scenarios across payers and instantly surface unmet criteria, blockers, and the fastest approvable path. Available to coordinator accounts."
-        requiredRole="coordinator"
-        fallbackHref="/matrix"
-        fallbackLabel="Continue browsing coverage matrix"
-      >
-        <SimulateInner />
-      </AccessSheet>
+      <SimulateInner />
     </Suspense>
   )
 }
@@ -36,6 +27,7 @@ export default function SimulatePage() {
 function SimulateInner() {
   const searchParams = useSearchParams()
   const initialDrugKey = searchParams.get('drug') ?? undefined
+  const returnTo = `/simulate${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
 
   const [results, setResults] = useState<SimulationResult[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -62,6 +54,15 @@ function SimulateInner() {
   }
 
   return (
+    <AccessSheet
+      capability="simulate"
+      returnTo={returnTo}
+      title="Policy Fit Simulator"
+      description="Run synthetic prior-auth scenarios across payers and instantly surface unmet criteria, blockers, and the fastest approvable path. Available to coordinator accounts."
+      requiredRole="coordinator"
+      fallbackHref="/matrix"
+      fallbackLabel="Continue browsing coverage matrix"
+    >
     <PageShell>
       {/* PHI warning — light amber */}
       <div
@@ -78,21 +79,12 @@ function SimulateInner() {
       </div>
 
       {/* Page header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span
-            className="flex items-center justify-center w-8 h-8 rounded-lg"
-            style={{ background: '#F5F3FF', border: '1px solid #DDD6FE' }}
-          >
-            <SimIcon />
-          </span>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--ink-strong)' }}>Policy Fit Simulator</h1>
-        </div>
-        <p style={{ fontSize: 14, color: 'var(--ink-muted)', maxWidth: '60ch', lineHeight: 1.6 }}>
-          Enter a synthetic patient scenario to surface approval blockers, missing evidence,
-          and the fastest approvable path — compared across all major payers simultaneously.
-        </p>
-      </div>
+      <WorkspaceHeader
+        eyebrow="Coordinator Workflow"
+        title="Policy Fit Simulator"
+        description="Enter a synthetic patient scenario to surface approval blockers, missing evidence, and the fastest approvable path compared across major payers."
+        icon={<SimIcon />}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
         {/* Left: form */}
@@ -139,6 +131,7 @@ function SimulateInner() {
         </div>
       </div>
     </PageShell>
+    </AccessSheet>
   )
 }
 
@@ -150,10 +143,7 @@ function ResultsSummary({ results, caseData }: { results: SimulationResult[]; ca
   const avgFit = Math.round(results.reduce((s, r) => s + r.fit_score, 0) / results.length)
 
   return (
-    <div
-      className="rounded-xl px-5 py-4 flex flex-wrap items-center gap-6"
-      style={{ background: 'var(--bg-surface)', border: '1px solid var(--line-mid)' }}
-    >
+    <div className="workspace-panel flex flex-wrap items-center gap-6 px-5 py-4">
       <Stat label="Payers analyzed" value={results.length} />
       <Stat label="Hard blocked" value={hardBlocked} color={hardBlocked > 0 ? '#DC2626' : '#059669'} />
       <Stat label="Clean approvals" value={clean} color={clean > 0 ? '#059669' : 'var(--ink-muted)'} />
@@ -226,11 +216,7 @@ function EmptyState() {
 }
 
 function PageShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ minHeight: 'calc(100vh - 56px)', background: 'var(--bg-page)' }}>
-      <div className="mx-auto max-w-screen-xl px-6 py-10">{children}</div>
-    </div>
-  )
+  return <WorkspacePage>{children}</WorkspacePage>
 }
 
 function SimIcon({ className }: { className?: string }) {

@@ -13,16 +13,16 @@ export type BadgeVariant =
   | 'outline'
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  default:     'bg-slate-500/15 text-slate-300 ring-slate-500/30',
-  covered:     'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30',
-  conditional: 'bg-amber-500/15 text-amber-400 ring-amber-500/30',
-  preferred:   'bg-blue-500/15 text-blue-400 ring-blue-500/30',
-  nonpreferred:'bg-orange-500/15 text-orange-400 ring-orange-500/30',
-  not_covered: 'bg-red-500/15 text-red-400 ring-red-500/30',
-  unclear:     'bg-gray-500/15 text-gray-400 ring-gray-500/30',
-  cyan:        'bg-cyan-500/15 text-cyan-400 ring-cyan-500/30',
-  violet:      'bg-violet-500/15 text-violet-400 ring-violet-500/30',
-  outline:     'bg-transparent text-slate-400 ring-navy-600',
+  default:     'bg-slate-100 text-slate-700 ring-slate-200',
+  covered:     'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  conditional: 'bg-amber-50 text-amber-700 ring-amber-200',
+  preferred:   'bg-cyan-50 text-cyan-700 ring-cyan-200',
+  nonpreferred:'bg-orange-50 text-orange-700 ring-orange-200',
+  not_covered: 'bg-rose-50 text-rose-700 ring-rose-200',
+  unclear:     'bg-slate-100 text-slate-600 ring-slate-200',
+  cyan:        'bg-cyan-50 text-cyan-700 ring-cyan-200',
+  violet:      'bg-violet-50 text-violet-700 ring-violet-200',
+  outline:     'bg-white text-slate-700 ring-slate-200',
 }
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {

@@ -30,20 +30,20 @@ export default function ChangeRadar({ diff, compact = false }: ChangeRadarProps)
   const removedCount   = diff.changes.filter((c) => c.change_type === 'removed').length
 
   return (
-    <div className="rounded-xl border border-navy-700 bg-navy-900 overflow-hidden">
+    <div className="workspace-panel overflow-hidden">
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className={`px-5 py-4 border-b border-navy-700 ${directionHeaderBg(diff.overall_direction)}`}>
+      <div className={`border-b px-5 py-4 ${directionHeaderBg(diff.overall_direction)}`} style={{ borderColor: 'var(--line-soft)' }}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-slate-100 text-base">
+              <h3 className="text-base font-bold" style={{ color: 'var(--ink-strong)' }}>
                 {diff.drug_display_name}
-                <span className="text-slate-500 font-normal"> · </span>
+                <span className="font-normal" style={{ color: 'var(--ink-faint)' }}> · </span>
                 {diff.payer_name}
               </h3>
               <DirectionBadge direction={diff.overall_direction} />
             </div>
-            <p className="text-xs text-slate-500 mt-0.5 font-mono">
+            <p className="mt-0.5 text-xs font-mono" style={{ color: 'var(--ink-muted)' }}>
               {diff.version_before} → {diff.version_after}
               <span className="mx-1.5">·</span>
               {diff.date_before} → {diff.date_after}
@@ -107,9 +107,9 @@ export default function ChangeRadar({ diff, compact = false }: ChangeRadarProps)
       </div>
 
       {/* ── Changes ───────────────────────────────────────────────────────── */}
-      <div className="divide-y divide-navy-700/50">
+      <div className="divide-y" style={{ borderColor: 'var(--line-soft)' }}>
         {visibleChanges.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-slate-600 text-center">
+          <p className="px-5 py-6 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
             No changes match this filter.
           </p>
         ) : (
@@ -137,19 +137,19 @@ function ExpandedChangeRow({ change }: { change: PolicyChange }) {
       {/* Field label + impact */}
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <DirectionChip type={change.change_type} />
-        <span className="text-sm font-semibold text-slate-200">{change.field_label}</span>
+        <span className="text-sm font-semibold" style={{ color: 'var(--ink-strong)' }}>{change.field_label}</span>
         <ImpactBadge impact={change.impact} />
       </div>
 
       {/* Before / After */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-        <div className="rounded-lg bg-navy-800 border border-red-900/30 px-3 py-2">
-          <p className="text-red-400/70 font-semibold mb-1 uppercase tracking-wider text-[10px]">Before</p>
-          <p className="text-slate-400 leading-relaxed">{change.before}</p>
+        <div className="rounded-lg border px-3 py-2" style={{ background: 'var(--bg-soft)', borderColor: 'rgba(239, 68, 68, 0.15)' }}>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-rose-700">Before</p>
+          <p className="leading-relaxed" style={{ color: 'var(--ink-body)' }}>{change.before}</p>
         </div>
-        <div className="rounded-lg bg-navy-800 border border-emerald-900/30 px-3 py-2">
-          <p className="text-emerald-400/70 font-semibold mb-1 uppercase tracking-wider text-[10px]">After</p>
-          <p className="text-slate-200 leading-relaxed">{change.after}</p>
+        <div className="rounded-lg border px-3 py-2" style={{ background: 'var(--bg-surface)', borderColor: 'rgba(16, 185, 129, 0.18)' }}>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">After</p>
+          <p className="leading-relaxed" style={{ color: 'var(--ink-strong)' }}>{change.after}</p>
         </div>
       </div>
 
@@ -158,7 +158,8 @@ function ExpandedChangeRow({ change }: { change: PolicyChange }) {
         <button
           type="button"
           onClick={() => setShowCitations((v) => !v)}
-          className="mt-2 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          className="mt-2 flex items-center gap-1 text-xs transition-colors hover:text-slate-900"
+          style={{ color: 'var(--ink-muted)' }}
         >
           <ChevronIcon open={showCitations} />
           {showCitations ? 'Hide' : 'Show'} source citations
@@ -171,19 +172,20 @@ function ExpandedChangeRow({ change }: { change: PolicyChange }) {
             cite ? (
               <div
                 key={idx}
-                className="rounded-lg border border-navy-600 bg-navy-800 px-3 py-2 text-xs space-y-1"
+                className="space-y-1 rounded-lg border px-3 py-2 text-xs"
+                style={{ borderColor: 'var(--line-soft)', background: 'var(--bg-soft)' }}
               >
-                <p className="text-cyan-400 font-semibold truncate">{cite.source_label}</p>
-                <p className="text-slate-500 font-mono">
+                <p className="truncate font-semibold text-cyan-700">{cite.source_label}</p>
+                <p className="font-mono" style={{ color: 'var(--ink-muted)' }}>
                   {cite.page !== null && `p.${cite.page}`}
                   {cite.section && ` · §${cite.section}`}
                 </p>
-                <blockquote className="text-slate-400 italic border-l-2 border-cyan-700 pl-2 leading-relaxed">
+                <blockquote className="border-l-2 border-cyan-600 pl-2 italic leading-relaxed" style={{ color: 'var(--ink-body)' }}>
                   "{cite.quote}"
                 </blockquote>
               </div>
             ) : (
-              <div key={idx} className="rounded-lg border border-dashed border-navy-700 px-3 py-2 text-xs text-slate-600 italic">
+              <div key={idx} className="rounded-lg border border-dashed px-3 py-2 text-xs italic" style={{ borderColor: 'var(--line-mid)', color: 'var(--ink-muted)' }}>
                 {idx === 0 ? 'No prior citation' : 'No new citation'}
               </div>
             ),
@@ -200,7 +202,7 @@ function CompactChangeRow({ change }: { change: PolicyChange }) {
   return (
     <div className="px-5 py-2.5 flex items-center gap-3">
       <DirectionChip type={change.change_type} />
-      <span className="text-sm text-slate-300 flex-1 min-w-0 truncate">{change.field_label}</span>
+      <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--ink-body)' }}>{change.field_label}</span>
       <ImpactBadge impact={change.impact} />
     </div>
   )
@@ -223,11 +225,11 @@ function FrictionDeltaWidget({
   return (
     <div className="flex flex-col items-end gap-0.5">
       <div className="flex items-center gap-2 font-mono text-sm">
-        <span className="text-slate-500">{before}</span>
-        <span className="text-slate-600">→</span>
+        <span style={{ color: 'var(--ink-muted)' }}>{before}</span>
+        <span style={{ color: 'var(--ink-faint)' }}>→</span>
         <span
           className={
-            unchanged ? 'text-slate-400' : tightened ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'
+            unchanged ? 'text-slate-600' : tightened ? 'font-bold text-rose-700' : 'font-bold text-emerald-700'
           }
         >
           {after}
@@ -235,16 +237,16 @@ function FrictionDeltaWidget({
         <span
           className={`text-xs px-1.5 py-0.5 rounded ${
             unchanged
-              ? 'bg-slate-800 text-slate-500'
+              ? 'bg-slate-100 text-slate-600'
               : tightened
-              ? 'bg-red-900/40 text-red-400'
-              : 'bg-emerald-900/40 text-emerald-400'
+              ? 'bg-rose-50 text-rose-700'
+              : 'bg-emerald-50 text-emerald-700'
           }`}
         >
           {delta > 0 ? `+${delta}` : delta}
         </span>
       </div>
-      <p className="text-[10px] text-slate-600 uppercase tracking-wider">friction score</p>
+      <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--ink-faint)' }}>friction score</p>
     </div>
   )
 }
@@ -252,11 +254,11 @@ function FrictionDeltaWidget({
 // ── FilterPill ────────────────────────────────────────────────────────────────
 
 const PILL_COLORS = {
-  red:   { active: 'bg-red-900/50 border-red-700 text-red-300',   inactive: 'bg-navy-800 border-navy-600 text-slate-400' },
-  green: { active: 'bg-emerald-900/40 border-emerald-700 text-emerald-300', inactive: 'bg-navy-800 border-navy-600 text-slate-400' },
-  blue:  { active: 'bg-blue-900/40 border-blue-700 text-blue-300', inactive: 'bg-navy-800 border-navy-600 text-slate-400' },
-  amber: { active: 'bg-amber-900/30 border-amber-700 text-amber-300', inactive: 'bg-navy-800 border-navy-600 text-slate-400' },
-  slate: { active: 'bg-navy-700 border-navy-500 text-slate-200',   inactive: 'bg-navy-800 border-navy-600 text-slate-500' },
+  red:   { active: 'bg-rose-50 border-rose-200 text-rose-700', inactive: 'bg-white border-slate-200 text-slate-600' },
+  green: { active: 'bg-emerald-50 border-emerald-200 text-emerald-700', inactive: 'bg-white border-slate-200 text-slate-600' },
+  blue:  { active: 'bg-cyan-50 border-cyan-200 text-cyan-700', inactive: 'bg-white border-slate-200 text-slate-600' },
+  amber: { active: 'bg-amber-50 border-amber-200 text-amber-700', inactive: 'bg-white border-slate-200 text-slate-600' },
+  slate: { active: 'bg-slate-100 border-slate-200 text-slate-700', inactive: 'bg-white border-slate-200 text-slate-600' },
 } as const
 
 function FilterPill({
@@ -281,7 +283,7 @@ function FilterPill({
         active ? cls.active : cls.inactive
       }`}
     >
-      {label} <span className="opacity-60">{count}</span>
+      {label} <span className="opacity-70">{count}</span>
     </button>
   )
 }
@@ -290,9 +292,9 @@ function FilterPill({
 
 function DirectionBadge({ direction }: { direction: PolicyDiff['overall_direction'] }) {
   const map = {
-    tightened: 'bg-red-900/40 border-red-700 text-red-400',
-    loosened:  'bg-emerald-900/30 border-emerald-700 text-emerald-400',
-    unchanged: 'bg-navy-700 border-navy-500 text-slate-400',
+    tightened: 'bg-rose-50 border-rose-200 text-rose-700',
+    loosened:  'bg-emerald-50 border-emerald-200 text-emerald-700',
+    unchanged: 'bg-slate-100 border-slate-200 text-slate-600',
   }
   const label = {
     tightened: '↑ Tightened',
@@ -310,11 +312,11 @@ function DirectionBadge({ direction }: { direction: PolicyDiff['overall_directio
 
 function DirectionChip({ type }: { type: ChangeDirection }) {
   const map: Record<ChangeDirection, string> = {
-    tightened: 'bg-red-900/40 text-red-400',
-    loosened:  'bg-emerald-900/30 text-emerald-400',
-    unchanged: 'bg-navy-700 text-slate-400',
-    added:     'bg-blue-900/30 text-blue-400',
-    removed:   'bg-amber-900/30 text-amber-400',
+    tightened: 'bg-rose-50 text-rose-700',
+    loosened:  'bg-emerald-50 text-emerald-700',
+    unchanged: 'bg-slate-100 text-slate-600',
+    added:     'bg-cyan-50 text-cyan-700',
+    removed:   'bg-amber-50 text-amber-700',
   }
   const symbol: Record<ChangeDirection, string> = {
     tightened: '↑',
@@ -334,9 +336,9 @@ function DirectionChip({ type }: { type: ChangeDirection }) {
 
 function ImpactBadge({ impact }: { impact: ChangeImpact }) {
   const map: Record<ChangeImpact, string> = {
-    high:   'text-red-400 border-red-800/50',
-    medium: 'text-amber-400 border-amber-800/40',
-    low:    'text-slate-500 border-navy-600',
+    high:   'text-rose-700 border-rose-200',
+    medium: 'text-amber-700 border-amber-200',
+    low:    'text-slate-600 border-slate-200',
   }
   return (
     <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-mono uppercase ${map[impact]}`}>
@@ -349,19 +351,19 @@ function ImpactBadge({ impact }: { impact: ChangeImpact }) {
 
 function directionHeaderBg(direction: PolicyDiff['overall_direction']) {
   return direction === 'tightened'
-    ? 'bg-red-950/10'
+    ? 'bg-rose-50'
     : direction === 'loosened'
-    ? 'bg-emerald-950/10'
+    ? 'bg-emerald-50'
     : ''
 }
 
 function changeConfig(type: ChangeDirection) {
   return {
-    tightened: { rowBg: 'bg-red-950/5' },
-    loosened:  { rowBg: 'bg-emerald-950/5' },
+    tightened: { rowBg: 'bg-rose-50/70' },
+    loosened:  { rowBg: 'bg-emerald-50/70' },
     unchanged: { rowBg: '' },
-    added:     { rowBg: 'bg-blue-950/5' },
-    removed:   { rowBg: 'bg-amber-950/5' },
+    added:     { rowBg: 'bg-cyan-50/70' },
+    removed:   { rowBg: 'bg-amber-50/70' },
   }[type]
 }
 

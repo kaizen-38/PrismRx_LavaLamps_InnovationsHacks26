@@ -21,6 +21,7 @@
 
 import { useAuth } from '@/lib/auth-context'
 import type { UserRole } from '@/lib/auth0'
+import { ENABLE_AUTH } from '@/lib/auth0'
 
 // ── AccessSheet ───────────────────────────────────────────────────────────────
 //
@@ -49,7 +50,7 @@ export function AccessSheet({
   fallbackLabel,
   children,
 }: AccessSheetProps) {
-  const { user, loading, can } = useAuth()
+  const { user, loading, can, demoLogin } = useAuth()
 
   if (loading) return <LoadingPage />
 
@@ -116,10 +117,23 @@ export function AccessSheet({
             >
               Sign in as {roleLabel}
             </a>
+          ) : !ENABLE_AUTH ? (
+            <button
+              type="button"
+              onClick={() => demoLogin(requiredRole)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-colors"
+              style={{ background: requiredRole === 'coordinator' ? 'var(--accent-violet)' : 'var(--accent-blue)' }}
+            >
+              Switch to {roleLabel}
+            </button>
           ) : (
-            <p style={{ fontSize: 12, color: 'var(--ink-faint)', fontFamily: 'var(--font-mono)' }}>
-              Contact your admin to upgrade your role.
-            </p>
+            <a
+              href={loginUrl}
+              className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-colors"
+              style={{ background: 'var(--accent-blue)' }}
+            >
+              Switch account
+            </a>
           )}
 
           <a

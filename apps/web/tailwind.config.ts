@@ -1,7 +1,6 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  darkMode: 'class',
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -10,50 +9,37 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Surfaces (Paperlight Archive) ──────────────────────────────────
-        canvas:  '#FAFAF7',
-        page:    '#F6F8FB',
+        canvas:  '#F5F8FB',
+        page:    '#EEF4F8',
         surface: '#FFFFFF',
-        soft:    '#F3F6FB',
-        'soft-2':'#EEF3F8',
+        soft:    '#F7FAFC',
+        'soft-2':'#EDF3F9',
 
-        // ── Ink ────────────────────────────────────────────────────────────
         ink: {
-          strong:  '#111827',
+          strong:  '#162033',
           body:    '#334155',
-          muted:   '#64748B',
-          faint:   '#94A3B8',
+          muted:   '#60758C',
+          faint:   '#8EA1B5',
         },
 
-        // ── Lines ──────────────────────────────────────────────────────────
         line: {
-          soft:   '#E7EDF5',
-          mid:    '#D6E0EB',
-          strong: '#C6D4E1',
+          soft:   '#DDE6EF',
+          mid:    '#CAD7E4',
+          strong: '#B6C6D5',
         },
 
-        // ── Navy (dark workspace) ──────────────────────────────────────────
-        navy: {
-          950: '#070D1A',
-          900: '#0F172A',
-          800: '#1E293B',
-          700: '#334155',
-          600: '#475569',
-        },
-
-        // ── Accent ─────────────────────────────────────────────────────────
         accent: {
-          blue:      '#2B50FF',
-          'blue-d':  '#1D4ED8',
-          'blue-s':  '#ECF1FF',
-          teal:      '#0F766E',
-          'teal-s':  '#EAF8F4',
-          amber:     '#B45309',
-          'amber-s': '#FFF6E8',
-          coral:     '#C2410C',
-          'coral-s': '#FFF1EB',
-          rose:      '#BE123C',
-          'rose-s':  '#FFF0F4',
+          cyan:      '#06B6D4',
+          'cyan-d':  '#0891B2',
+          'cyan-s':  '#ECFEFF',
+          mint:      '#10B981',
+          'mint-s':  '#ECFDF5',
+          amber:     '#D97706',
+          'amber-s': '#FFF7ED',
+          coral:     '#EF4444',
+          'coral-s': '#FFF1F2',
+          violet:    '#7C3AED',
+          'violet-s':'#F5F3FF',
         },
       },
 
