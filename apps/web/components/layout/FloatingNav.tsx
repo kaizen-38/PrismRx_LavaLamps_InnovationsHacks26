@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { LayoutGrid, ClipboardCheck, Radio, MessageSquare } from 'lucide-react'
+import { LayoutGrid, ClipboardCheck, Radio, LayoutDashboard } from 'lucide-react'
 import { spring } from '@/lib/motion/presets'
 
 const NAV_LINKS = [
-  { href: '/workspace', label: 'Workspace', icon: MessageSquare   },
+  { href: '/workspace', label: 'Workspace', icon: LayoutDashboard },
   { href: '/matrix',    label: 'Coverage',  icon: LayoutGrid      },
   { href: '/simulate',  label: 'Case Review', icon: ClipboardCheck },
   { href: '/radar',     label: 'Changes',   icon: Radio           },

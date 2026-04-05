@@ -322,95 +322,115 @@ export default function CaseReviewPage() {
           <form
             onSubmit={handleSubmit}
             style={{
-              display: 'flex', flexDirection: 'column', gap: 16,
+              display: 'flex', flexDirection: 'column', gap: 0,
               background: 'var(--bg-surface)',
               border: '1px solid var(--line-soft)',
-              borderRadius: 20, padding: '1.5rem',
+              borderRadius: 20,
               boxShadow: 'var(--shadow-xs)',
+              overflow: 'hidden',
             }}
           >
-            {/* Drug */}
-            <Field label="Drug">
-              <select
-                value={caseData.drug_key}
-                onChange={e => setCaseData(c => ({ ...c, drug_key: e.target.value }))}
-                className="input-field"
+            {/* Clinical section */}
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink-faint)', marginBottom: 2 }}>
+                Clinical
+              </p>
+
+              <Field label="Drug">
+                <select
+                  value={caseData.drug_key}
+                  onChange={e => setCaseData(c => ({ ...c, drug_key: e.target.value }))}
+                  className="input-field"
+                >
+                  {DRUG_OPTIONS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                </select>
+              </Field>
+
+              <Field label="Diagnosis">
+                <input
+                  type="text" placeholder="e.g., Rheumatoid Arthritis"
+                  value={caseData.diagnosis}
+                  onChange={e => setCaseData(c => ({ ...c, diagnosis: e.target.value }))}
+                  className="input-field" required
+                />
+              </Field>
+
+              <Field label="ICD-10 Code">
+                <input
+                  type="text" placeholder="e.g., M05.9"
+                  value={caseData.icd10_code}
+                  onChange={e => setCaseData(c => ({ ...c, icd10_code: e.target.value }))}
+                  className="input-field"
+                  style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
+                />
+              </Field>
+
+              <Field label="Prior Therapies (comma-separated)">
+                <input
+                  type="text" placeholder="e.g., Methotrexate, Azathioprine"
+                  value={priorInput}
+                  onChange={e => {
+                    setPriorInput(e.target.value)
+                    setCaseData(c => ({ ...c, prior_therapies: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))
+                  }}
+                  className="input-field"
+                />
+              </Field>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: 'var(--line-soft)', margin: '0 1.5rem' }} />
+
+            {/* Administrative section */}
+            <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink-faint)', marginBottom: 2 }}>
+                Administrative
+              </p>
+
+              <Field label="Specialty">
+                <input
+                  type="text" placeholder="e.g., Rheumatology"
+                  value={caseData.specialty}
+                  onChange={e => setCaseData(c => ({ ...c, specialty: e.target.value }))}
+                  className="input-field"
+                />
+              </Field>
+
+              <Field label="Care Setting">
+                <select
+                  value={caseData.care_setting}
+                  onChange={e => setCaseData(c => ({ ...c, care_setting: e.target.value as SimulationCase['care_setting'] }))}
+                  className="input-field"
+                >
+                  {CARE_SETTINGS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </Field>
+
+              <Field label="Patient Age">
+                <input
+                  type="number" min={0} max={120}
+                  value={caseData.age || ''}
+                  onChange={e => setCaseData(c => ({ ...c, age: Number(e.target.value) }))}
+                  className="input-field"
+                />
+              </Field>
+            </div>
+
+            {/* Submit */}
+            <div style={{ padding: '0 1.5rem 1.5rem' }}>
+              <button
+                type="submit"
+                disabled={loading || !caseData.diagnosis}
+                className="btn-primary w-full justify-center"
+                style={{ opacity: loading || !caseData.diagnosis ? 0.5 : 1, cursor: loading || !caseData.diagnosis ? 'not-allowed' : 'pointer', borderRadius: 14 }}
               >
-                {DRUG_OPTIONS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-              </select>
-            </Field>
-
-            <Field label="Diagnosis">
-              <input
-                type="text" placeholder="e.g., Rheumatoid Arthritis"
-                value={caseData.diagnosis}
-                onChange={e => setCaseData(c => ({ ...c, diagnosis: e.target.value }))}
-                className="input-field" required
-              />
-            </Field>
-
-            <Field label="ICD-10 Code">
-              <input
-                type="text" placeholder="e.g., M05.9"
-                value={caseData.icd10_code}
-                onChange={e => setCaseData(c => ({ ...c, icd10_code: e.target.value }))}
-                className="input-field"
-                style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
-              />
-            </Field>
-
-            <Field label="Prior Therapies (comma-separated)">
-              <input
-                type="text" placeholder="e.g., Methotrexate, Azathioprine"
-                value={priorInput}
-                onChange={e => {
-                  setPriorInput(e.target.value)
-                  setCaseData(c => ({ ...c, prior_therapies: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))
-                }}
-                className="input-field"
-              />
-            </Field>
-
-            <Field label="Specialty">
-              <input
-                type="text" placeholder="e.g., Rheumatology"
-                value={caseData.specialty}
-                onChange={e => setCaseData(c => ({ ...c, specialty: e.target.value }))}
-                className="input-field"
-              />
-            </Field>
-
-            <Field label="Care Setting">
-              <select
-                value={caseData.care_setting}
-                onChange={e => setCaseData(c => ({ ...c, care_setting: e.target.value as SimulationCase['care_setting'] }))}
-                className="input-field"
-              >
-                {CARE_SETTINGS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </Field>
-
-            <Field label="Patient Age">
-              <input
-                type="number" min={0} max={120}
-                value={caseData.age || ''}
-                onChange={e => setCaseData(c => ({ ...c, age: Number(e.target.value) }))}
-                className="input-field"
-              />
-            </Field>
-
-            <button
-              type="submit"
-              disabled={loading || !caseData.diagnosis}
-              className="btn-primary w-full justify-center"
-              style={{ opacity: loading || !caseData.diagnosis ? 0.5 : 1, cursor: loading || !caseData.diagnosis ? 'not-allowed' : 'pointer' }}
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Checking coverage…</>
-              ) : (
-                <><ClipboardCheck className="w-4 h-4" /> Check Coverage</>
-              )}
-            </button>
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Running simulation…</>
+                ) : (
+                  <><ClipboardCheck className="w-4 h-4" /> Run simulation</>
+                )}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -433,18 +453,30 @@ export default function CaseReviewPage() {
               style={{
                 border: '1px solid var(--line-soft)',
                 borderRadius: 20,
-                padding: '3rem',
-                textAlign: 'center',
+                padding: '2.5rem 2rem',
                 background: 'var(--bg-soft)',
               }}
             >
-              <ClipboardCheck className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--ink-faint)' }} />
-              <p style={{ fontSize: 14, color: 'var(--ink-muted)', marginBottom: 8 }}>
-                Fill in the case details and click <strong>Check Coverage</strong> to see payer-by-payer access analysis.
+              <ClipboardCheck className="w-7 h-7 mb-4" style={{ color: 'var(--ink-faint)' }} />
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-strong)', marginBottom: 6 }}>
+                Ready to simulate
               </p>
-              <p style={{ fontSize: 13, color: 'var(--ink-faint)' }}>
-                Or select an example case above to get started.
+              <p style={{ fontSize: 14, color: 'var(--ink-muted)', marginBottom: 20, lineHeight: 1.65 }}>
+                Enter a drug, diagnosis, and prior therapy history. PrismRx will score each indexed payer for access friction and surface hard blockers.
               </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  'Fit score per payer (0–100)',
+                  'Hard blockers vs. soft conditions',
+                  'Next-best action for approval',
+                  'Evidence pack checklist',
+                ].map(item => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ink-muted)' }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent-blue)', flexShrink: 0 }} />
+                    {item}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -178,7 +178,7 @@ export default function RadarPage() {
       </div>
 
       {/* Change cards */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {filtered.map((change, i) => {
           const cfg = DRIFT_CONFIG[change.drift]
           const Icon = cfg.icon
@@ -188,49 +188,54 @@ export default function RadarPage() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="card p-6"
+              className="card"
+              style={{ padding: '1rem 1.25rem' }}
             >
-              <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                    style={{ color: cfg.color, background: cfg.bg }}
-                  >
-                    <Icon className="w-3 h-3" />
-                    {cfg.label}
-                  </span>
-                  <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#1D1D1F' }}>{change.payer}</span>
-                  <span style={{ color: '#98989D' }}>·</span>
-                  <span style={{ fontSize: '0.8125rem', color: '#6E6E73', fontFamily: 'var(--font-geist-mono, monospace)' }}>
-                    {change.drug}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#98989D', fontFamily: 'var(--font-geist-mono, monospace)' }}>
+              {/* Compact header row */}
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                  style={{ color: cfg.color, background: cfg.bg, fontSize: 11 }}
+                >
+                  <Icon className="w-3 h-3" />
+                  {cfg.label}
+                </span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-strong)' }}>{change.payer}</span>
+                <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}>·</span>
+                <span style={{ fontSize: 13, color: 'var(--ink-muted)', fontFamily: 'var(--font-mono)' }}>
+                  {change.drug}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--ink-faint)', fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
                   {change.version_from} → {change.version_to}
                 </span>
               </div>
 
-              <p className="overline mb-2">{change.field}</p>
-              <p style={{ fontSize: '0.875rem', color: '#6E6E73', marginBottom: '1rem', lineHeight: 1.65 }}>{change.summary}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-faint)', marginBottom: 4 }}>
+                {change.field}
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--ink-body)', marginBottom: change.drift !== 'unchanged' ? 12 : 0, lineHeight: 1.6 }}>
+                {change.summary}
+              </p>
 
               {change.drift !== 'unchanged' && change.drift !== 'new' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { label: 'Before', text: change.before, color: '#E53935', bg: '#FFEBEE' },
-                    { label: 'After',  text: change.after,  color: '#12B886', bg: '#E6FAF4' },
-                  ].map(({ label, text, color, bg }) => (
-                    <div key={label} className="rounded-xl p-4" style={{ background: '#F5F5F7', border: '1px solid rgba(0,0,0,0.06)' }}>
-                      <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color, marginBottom: '0.5rem' }}>
-                        {label}
-                      </p>
-                      <p style={{ fontSize: '0.8125rem', color: '#6E6E73', lineHeight: 1.6 }}>{text}</p>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 180, borderRadius: 10, padding: '8px 12px', background: 'rgba(229,57,53,0.06)', borderLeft: '2px solid #E53935' }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#E53935', marginBottom: 4 }}>
+                      Before
+                    </p>
+                    <p style={{ fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.55 }}>{change.before}</p>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 180, borderRadius: 10, padding: '8px 12px', background: 'rgba(18,184,134,0.06)', borderLeft: '2px solid #12B886' }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#12B886', marginBottom: 4 }}>
+                      After
+                    </p>
+                    <p style={{ fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.55 }}>{change.after}</p>
+                  </div>
                 </div>
               )}
-              {(change.drift === 'unchanged' || change.drift === 'new') && (
-                <div className="rounded-xl p-4" style={{ background: '#F5F5F7', border: '1px solid rgba(0,0,0,0.06)' }}>
-                  <p style={{ fontSize: '0.8125rem', color: '#6E6E73' }}>{change.after}</p>
+              {(change.drift === 'unchanged' || change.drift === 'new') && change.after !== '—' && (
+                <div style={{ borderRadius: 10, padding: '8px 12px', background: 'var(--bg-soft)', border: '1px solid var(--line-soft)' }}>
+                  <p style={{ fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.55 }}>{change.after}</p>
                 </div>
               )}
             </motion.div>

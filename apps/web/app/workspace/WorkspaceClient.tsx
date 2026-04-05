@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, RotateCcw, AlertCircle } from 'lucide-react'
+import { Send, RotateCcw, AlertCircle, Search, BarChart2, FlaskConical, BookOpen } from 'lucide-react'
 import type { Widget, LoaderStage, AssistantIntent } from '@/lib/assistant-types'
 import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
@@ -116,10 +116,7 @@ export function WorkspaceClient({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    handleSend('hi', undefined, true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // No auto-greeting — welcome state is rendered directly
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -232,7 +229,7 @@ export function WorkspaceClient({
   const displayReport = activeReport
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-canvas)', fontFamily: 'var(--font-sans)' }}>
+    <div data-workspace-page style={{ display: 'flex', height: '100vh', paddingTop: 56, boxSizing: 'border-box', background: 'var(--bg-canvas)', fontFamily: 'var(--font-sans)' }}>
 
       {/* ── LEFT PANE ─────────────────────────────────────────────────── */}
       <div style={{ width: 'clamp(320px, 42%, 520px)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--line-soft)', background: 'var(--bg-surface)', flexShrink: 0 }}>
@@ -249,7 +246,7 @@ export function WorkspaceClient({
             <p style={{ margin: 0, fontSize: 11, color: 'var(--ink-muted)' }}>Indexed snapshot · {initialPayers.length} payers · {initialDrugs.length} drugs</p>
           </div>
           <button
-            onClick={() => { setConversation([]); setActiveReport(null); setShowLoader(false); setTimeout(() => handleSend('hi', undefined, true), 50) }}
+            onClick={() => { setConversation([]); setActiveReport(null); setShowLoader(false); setInput('') }}
             title="Reset"
             style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)', padding: 4 }}
           >
@@ -259,6 +256,27 @@ export function WorkspaceClient({
 
         {/* Messages */}
         <div role="log" aria-live="polite" aria-label="Conversation" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {conversation.length === 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.6 }}>
+                Ask a question to get started. Try:
+              </p>
+              {[
+                'Which payers cover rituximab for RA?',
+                'What are the step therapy requirements for Cigna infliximab?',
+              ].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleSend(s)}
+                  style={{ padding: '0.4rem 0.65rem', background: 'var(--bg-soft)', borderRadius: 9, border: '1px solid var(--line-soft)', fontSize: 12, color: 'var(--ink-body)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)', transition: 'border-color 150ms' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-blue)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--line-soft)')}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           <AnimatePresence initial={false}>
             {conversation.map(entry => (
               <motion.div
@@ -385,8 +403,12 @@ export function WorkspaceClient({
             </motion.div>
 
           ) : (
-            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 300 }}>
-              <p style={{ fontSize: 13, color: 'var(--ink-faint)', textAlign: 'center' }}>Results will appear here</p>
+            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} style={{ padding: '0.5rem' }}>
+              <WelcomePanel
+                payerCount={initialPayers.length}
+                drugCount={initialDrugs.length}
+                onAction={handleAction}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -444,6 +466,107 @@ function ErrorBubble({ message, onRetry }: { message: string; onRetry: () => voi
       <button onClick={onRetry} style={{ alignSelf: 'flex-start', fontSize: 12, color: '#C2410C', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontWeight: 500, textDecoration: 'underline' }}>
         Try again
       </button>
+    </div>
+  )
+}
+
+// ── Welcome panel (right pane, shown before first query) ─────────────────────
+
+const QUICK_ACTIONS = [
+  { id: 'check_coverage',  label: 'Check coverage',          icon: Search,       accent: '#2B50FF', bg: '#ECF1FF' },
+  { id: 'compare_payers',  label: 'Compare indexed payers',  icon: BarChart2,    accent: '#0F766E', bg: '#EAF8F4' },
+  { id: 'explore_drugs',   label: 'Explore supported drugs',  icon: FlaskConical, accent: '#B45309', bg: '#FFF6E8' },
+  { id: 'view_evidence',   label: 'View policy evidence',     icon: BookOpen,     accent: '#7C3AED', bg: '#F3F0FF' },
+]
+
+function WelcomePanel({ payerCount, drugCount, onAction }: { payerCount: number; drugCount: number; onAction: (id: string) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: 520 }}>
+      {/* Header */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-blue-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+              <polygon points="9,1.5 16.5,15.5 1.5,15.5" fill="none" stroke="#2B50FF" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.01em' }}>Policy Workspace</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-muted)' }}>{payerCount} payers · {drugCount} drug families indexed</p>
+          </div>
+        </div>
+        <p style={{ margin: 0, fontSize: 14, color: 'var(--ink-body)', lineHeight: 1.65, maxWidth: '48ch' }}>
+          Ask any coverage question in plain English. PrismRx will pull the indexed payer policy, extract PA criteria, and return a structured verdict with citations.
+        </p>
+      </div>
+
+      {/* Quick action grid */}
+      <div>
+        <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink-faint)' }}>
+          Quick actions
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {QUICK_ACTIONS.map((a, i) => (
+            <motion.button
+              key={a.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06, duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={{ y: -2, boxShadow: '0 6px 20px rgba(15,23,42,0.07)' }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onAction(a.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '0.75rem 1rem',
+                background: 'var(--bg-surface)', borderRadius: 14,
+                border: '1px solid var(--line-soft)',
+                cursor: 'pointer', textAlign: 'left',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <span style={{ width: 30, height: 30, borderRadius: 8, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <a.icon style={{ width: 14, height: 14, color: a.accent }} />
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-body)', lineHeight: 1.3 }}>
+                {a.label}
+              </span>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Suggested starters */}
+      <div>
+        <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink-faint)' }}>
+          Try asking
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            'Does UnitedHealthcare cover infliximab for RA?',
+            'What step therapy does Cigna require for rituximab?',
+            'Which payer has the most lenient criteria for vedolizumab?',
+          ].map((q) => (
+            <button
+              key={q}
+              onClick={() => onAction(q)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '0.5rem 0.75rem',
+                background: 'var(--bg-soft)', borderRadius: 10,
+                border: '1px solid var(--line-soft)',
+                cursor: 'pointer', textAlign: 'left',
+                fontFamily: 'var(--font-sans)', fontSize: 13,
+                color: 'var(--ink-body)', lineHeight: 1.45,
+                transition: 'border-color 150ms',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent-blue)')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--line-soft)')}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
