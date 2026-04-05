@@ -1,0 +1,56 @@
+# Aetna Clinical Policy Bulletin: Infliximab (CPB #0341)
+# Source: https://www.aetna.com/cpb/medical/data/300_399/0341.html
+# Retrieved: 2026-04-04
+
+## Policy Overview
+Aetna covers infliximab products (Remicade, Renflexis, Avsola, Inflectra, Zymfentra) for commercial medical plans when medically necessary and criteria are met. All products require precertification.
+
+## Covered Indications
+
+**Gastrointestinal:**
+- Moderately to severely active Crohn's disease
+- Moderately to severely active ulcerative colitis
+
+**Rheumatologic (Avsola/Inflectra/infliximab/Remicade/Renflexis only):**
+- Rheumatoid arthritis (with prior biologic/targeted synthetic drug use OR specific biomarker and disease activity criteria)
+- Ankylosing spondylitis and non-radiographic axial spondyloarthritis
+- Psoriatic arthritis
+- Reactive arthritis
+
+**Dermatologic:**
+- Plaque psoriasis (moderate to severe)
+- Hidradenitis suppurativa (severe, refractory)
+- Pyoderma gangrenosum
+
+**Other Conditions:**
+- Behçet's disease
+- Sarcoidosis
+- Takayasu's arteritis
+- Uveitis
+- Immune checkpoint inhibitor-related toxicity
+- Acute graft versus host disease
+
+## Prescriber Requirements
+Coverage requires prescription by or consultation with specialty-appropriate providers (gastroenterologists, rheumatologists, dermatologists, ophthalmologists, oncologists, or hematologists depending on indication).
+
+## Key Authorization Requirements
+
+**TB Testing:** Negative tuberculosis test (TST or IGRA) within 12 months before initiating therapy for biologic-naive patients.
+
+**Drug Combination Restrictions:** Cannot use concomitantly with other biologics or targeted synthetic drugs for the same indication.
+
+**Continuation Criteria:** Members must demonstrate positive clinical response (remission, low disease activity, or measurable improvement in disease markers).
+
+## Dosing Summary
+- **Standard doses:** 3-5 mg/kg IV at weeks 0, 2, 6, then maintenance every 6-8 weeks
+- **Zymfentra (SC):** 120 mg weekly after IV induction completion
+- Dosing subject to FDA-approved labeling and specialty medication quantity limits
+
+## Experimental/Unproven Uses
+The bulletin designates numerous conditions as unproven, including: acne fulminans, asthma, celiac disease, COVID-19 pneumonia, granuloma annulare, IgG4-related disease, microscopic colitis, polymyositis, scleroderma, and Sjögren's syndrome.
+
+## Prior Authorization
+Call (866) 752-7021 or fax (888) 267-3277 for precertification. Statement of Medical Necessity (SMN) forms available through Specialty Pharmacy Precertification.
+
+## Related Utilization Management
+Site of care utilization management policy applies to infusion administration locations.

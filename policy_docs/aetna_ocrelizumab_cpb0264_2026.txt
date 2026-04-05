@@ -1,0 +1,40 @@
+# Aetna Clinical Policy Bulletin: Ocrelizumab / Multiple Sclerosis (CPB #0264)
+# Source: https://www.aetna.com/cpb/medical/data/200_299/0264.html
+# Retrieved: 2026-04-04
+
+## Policy Number
+0264 - Multiple Sclerosis
+
+## Precertification Requirement
+Precertification of multiple sclerosis medications (Briumvi, Lemtrada, Ocrevus, Ocrevus Zunovo, Tyruko, Tysabri) are required for all applicable plan designs.
+
+## Approved Indications
+
+Aetna considers ocrelizumab medically necessary for three conditions:
+
+1. **Relapsing Forms of MS** - Members diagnosed with relapsing-remitting or secondary progressive disease experiencing continued relapses
+2. **Clinically Isolated Syndrome (CIS)** - Treatment of initial demyelinating episode
+3. **Primary Progressive MS (PPMS)** - Treatment of progressive disease from onset
+
+## Initial Approval Criteria
+Members must have documented diagnosis of one eligible MS phenotype. No specific trial-and-error requirements are detailed for ocrelizumab's initial use.
+
+## Continuation of Therapy
+Coverage continues for members "who achieve or maintain a positive clinical response as evidenced by experiencing disease stability or improvement" during treatment.
+
+## Concomitant Use Restrictions
+Members cannot use ocrelizumab simultaneously with other disease-modifying MS agents (excluding Ampyra and Nuedexta, which are non-disease-modifying).
+
+## Pediatric Authorization
+"Authorization may be granted for pediatric members less than 18 years of age when benefits outweigh risks."
+
+## Dosing (Intravenous Formulation)
+- Initial: 300 mg infusion, repeated two weeks later
+- Maintenance: Single 600 mg infusion every 6 months
+- Pre-treatment screening required for Hepatitis B and serum quantitative immunoglobulins.
+
+## Dosing (Subcutaneous Formulation - Ocrevus Zunovo)
+920 mg ocrelizumab with hyaluronidase administered as single 23 mL subcutaneous injection in abdomen every 6 months.
+
+## Exclusions
+Aetna considers concomitant use with other disease-modifying therapies "experimental, investigational, or unproven."

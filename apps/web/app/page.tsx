@@ -320,12 +320,12 @@ export default function LandingPage() {
           </motion.div>
         </motion.div>
 
-        {/* PolicyPrism — right column, no overlap */}
+        {/* PolicyPrism — right column */}
         <motion.div
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 480 }}
+          style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '1rem' }}
         >
           <PolicyPrism />
         </motion.div>

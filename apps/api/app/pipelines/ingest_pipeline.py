@@ -151,6 +151,11 @@ async def _fetch_and_parse(
 ) -> tuple[ParsedDocument, str]:
     """Returns (ParsedDocument, source_type)."""
     if file_bytes:
+        fname = (file_name or "upload.pdf").lower()
+        if fname.endswith(".html") or fname.endswith(".htm") or fname.endswith(".txt"):
+            text = file_bytes.decode("utf-8", errors="replace")
+            doc = parse_html(text, source_uri=file_name or "", file_name=file_name or "")
+            return doc, "html"
         doc = parse_pdf_bytes(file_bytes, file_name=file_name or "upload.pdf")
         return doc, "pdf"
 
