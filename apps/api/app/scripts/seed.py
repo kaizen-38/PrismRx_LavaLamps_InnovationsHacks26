@@ -58,6 +58,41 @@ SAMPLE_DRUGS = [
         "mechanism": "Anti-CD20 mAb",
     },
     {
+        "brand_name": "Orencia",
+        "generic_name": "abatacept",
+        "j_code": "J0129",
+        "therapeutic_area": "Immunology",
+        "mechanism": "CTLA4-Ig fusion protein",
+    },
+    {
+        "brand_name": "Simponi Aria",
+        "generic_name": "golimumab",
+        "j_code": "J1602",
+        "therapeutic_area": "Immunology",
+        "mechanism": "TNF Inhibitor",
+    },
+    {
+        "brand_name": "Actemra",
+        "generic_name": "tocilizumab",
+        "j_code": "J3262",
+        "therapeutic_area": "Immunology",
+        "mechanism": "Anti-IL-6 receptor",
+    },
+    {
+        "brand_name": "Taltz",
+        "generic_name": "ixekizumab",
+        "j_code": "J1757",
+        "therapeutic_area": "Immunology",
+        "mechanism": "Anti-IL-17A mAb",
+    },
+    {
+        "brand_name": "Cosentyx",
+        "generic_name": "secukinumab",
+        "j_code": "J2357",
+        "therapeutic_area": "Immunology",
+        "mechanism": "Anti-IL-17A mAb",
+    },
+    {
         "brand_name": "Stelara",
         "generic_name": "ustekinumab",
         "j_code": "J3358",
@@ -65,18 +100,25 @@ SAMPLE_DRUGS = [
         "mechanism": "IL-12/23 Inhibitor",
     },
     {
-        "brand_name": "Keytruda",
-        "generic_name": "pembrolizumab",
-        "j_code": "J9271",
-        "therapeutic_area": "Oncology",
-        "mechanism": "PD-1 Inhibitor",
+        "brand_name": "Rituxan",
+        "generic_name": "rituximab",
+        "j_code": "J9312",
+        "therapeutic_area": "Immunology",
+        "mechanism": "Anti-CD20 mAb",
     },
     {
-        "brand_name": "Opdivo",
-        "generic_name": "nivolumab",
-        "j_code": "J9299",
-        "therapeutic_area": "Oncology",
-        "mechanism": "PD-1 Inhibitor",
+        "brand_name": "Cimzia",
+        "generic_name": "certolizumab_pegol",
+        "j_code": "J0717",
+        "therapeutic_area": "Immunology",
+        "mechanism": "PEG-TNF Inhibitor",
+    },
+    {
+        "brand_name": "Olumiant",
+        "generic_name": "baricitinib",
+        "j_code": "J2892",
+        "therapeutic_area": "Immunology",
+        "mechanism": "JAK1/2 Inhibitor",
     },
 ]
 
@@ -126,11 +168,11 @@ def seed_database():
         print("Seeding sample coverage policies...")
         # Create some sample coverage relationships
         coverage_count = 0
-        for drug in drugs[:3]:  # Sample first 3 drugs
-            for payer in payers[:2]:  # Sample first 2 payers
-                # Randomly assign coverage status
-                statuses = ["covered", "covered_with_restrictions", "not_covered"]
+        for drug in drugs[:12]:  # All 12 drugs
+            for payer in payers[:4]:  # All 4 payers
+                # Randomly assign coverage status based on drug and payer
                 import random
+                statuses = ["covered", "covered_with_restrictions", "not_covered"]
                 coverage_status = random.choice(statuses)
                 
                 policy = CoveragePolicyDNA(
