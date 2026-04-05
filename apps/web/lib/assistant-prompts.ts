@@ -1,5 +1,7 @@
 // Bedrock / document-analysis prompts for the coverage assistant (server-only consumers).
 
+import type { AssistantRequest } from '@/lib/assistant-types'
+
 export const DOC_ANALYSIS_SYSTEM = `You are a senior pharmacy / medical-benefit policy analyst helping prescribers, pharmacists, and access teams.
 
 Voice and style (this matters):
@@ -66,4 +68,84 @@ Return valid JSON only (no markdown):
     }
   ]
 }`
+}
+
+/** Plain-text streaming variant (no JSON) — same grounding as DOC_ANALYSIS_SYSTEM. */
+export const DOC_ANALYSIS_STREAMING_SYSTEM = `You are a senior pharmacy / medical-benefit policy analyst helping prescribers, pharmacists, and access teams.
+
+Voice: natural chat—warm, confident, human. Lead with what they need to know; add context only when the document supports it. Refer to the source naturally ("In this policy…", "The document states…"). Never say "the model" or "JSON".
+
+Rules:
+- Ground every claim in the provided text only. No outside knowledge, no guessing.
+- If the material does not answer the question, say so plainly and stop.
+- Output plain conversational prose only: 2–4 sentences. No JSON, no markdown code fences, no bullet lists unless the user asked for a list.`
+
+export function buildDocumentStreamingUserPrompt(params: {
+  userMessage: string
+  policy: DocumentAnalysisPromptPolicy
+  truncatedDocumentText: string
+  hasFullDocumentText: boolean
+}): string {
+  const { userMessage, policy, truncatedDocumentText: truncated, hasFullDocumentText } = params
+
+  const sourceLabel = hasFullDocumentText
+    ? 'FULL POLICY DOCUMENT TEXT'
+    : 'EXTRACTED POLICY FIELDS ONLY (no full PDF text was available)'
+
+  const refusalBlock = hasFullDocumentText
+    ? `If the excerpt does NOT support a reliable answer, say so in plain language. Do not guess.`
+    : `The block below is extracted database fields, not a full policy PDF—note that if relevant. If it doesn't answer the question, say so.`
+
+  return `USER QUESTION: ${userMessage}
+
+CONTEXT (for framing only—not for facts beyond the text below):
+- Payer: ${policy.payer}
+- Drug: ${policy.drug_display}
+- Effective date (metadata): ${policy.effective_date}
+- Version / label: ${policy.version_label}
+
+${sourceLabel}:
+${truncated}
+
+${refusalBlock}
+
+Write your reply now as plain text (2–4 sentences).`
+}
+
+/** Conversational assistant (no policy document in context). */
+export const GENERAL_ASSISTANT_SYSTEM = `You are PrismRx, an assistant for medical benefit drug policies (coverage, prior authorization, step therapy).
+
+Audience: prescribers, pharmacists, and access teams. Be warm, concise, and practical (about 2–6 sentences unless the user asks for more).
+
+Behavior:
+- Explain what you can do: when they name a supported payer and drug family, the app can run a document-backed coverage analysis. Suggest they ask in plain language (e.g. "Does UnitedHealthcare cover infliximab?") and use the workspace payer/drug selectors when helpful.
+- If payer or drug is missing for a coverage question, ask for it conversationally.
+- You will receive lists of indexed payer and drug family names—use them when explaining what is available. Do not invent specific coverage rules, PA rules, or clinical criteria; say those require a policy lookup with both payer and drug.
+- Do not claim you read a specific policy document unless this session actually ran that analysis.
+
+Output plain text only. No markdown code fences.`
+
+export function buildGeneralAssistantUserContent(params: {
+  req: AssistantRequest
+  payer?: string
+  drug?: string
+  supportedPayersLine: string
+  supportedDrugsLine: string
+}): string {
+  const { req, payer, drug, supportedPayersLine, supportedDrugsLine } = params
+  const historyBlock =
+    req.history && req.history.length > 0
+      ? `Prior turns:\n${req.history.map(h => `${h.role}: ${h.text}`).join('\n')}\n\n`
+      : ''
+
+  return `${historyBlock}Workspace context (from UI; may be incomplete):
+- Payer: ${payer ?? 'none'}
+- Drug: ${drug ?? 'none'}
+
+Indexed names in this app (metadata only—not policy rules):
+- Payers: ${supportedPayersLine}
+- Drug families: ${supportedDrugsLine}
+
+User message:
+${req.message}`
 }

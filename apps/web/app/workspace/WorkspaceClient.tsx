@@ -21,11 +21,52 @@ type ConversationEntry = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-async function sendMessage(
+type StreamPayload =
+  | { type: 'delta'; text: string }
+  | { type: 'complete'; data: AssistantResponse }
+  | { type: 'error'; message: string }
+
+/** Only hardcoded assistant copy: first bubble when the workspace opens (all later replies come from the API). */
+const INTRO_ASSISTANT_TEXT =
+  'Hi — I\'m here to help you interpret medical benefit drug policies (coverage, PA, step therapy) using the documents we can pull for your plan. Tell me the payer and drug you\'re working on—for example: "Does UnitedHealthcare cover infliximab?"'
+
+function createWelcomeIntroResponse(
+  initialPayers: Array<{ id: string; displayName: string }>,
+  initialDrugs: Array<{ key: string; displayName: string }>,
+): AssistantResponse {
+  return {
+    requestId: 'welcome-intro',
+    intent: 'greeting',
+    assistantText: INTRO_ASSISTANT_TEXT,
+    widget: {
+      type: 'welcome_quick_actions',
+      props: {
+        supportedPayerCount: initialPayers.length,
+        supportedDrugCount: initialDrugs.length,
+      },
+    },
+    sideWidgets: [],
+    loaderStages: [],
+    meta: {
+      resolvedPayer: null,
+      resolvedDrug: null,
+      isIndexed: true,
+      dataSource: 'manual_indexed',
+      modelUsed: 'fallback',
+      timestamp: new Date().toISOString(),
+    },
+  }
+}
+
+/**
+ * SSE from POST /api/assistant/respond/stream — deltas while Bedrock generates, then full envelope.
+ */
+async function consumeAssistantStream(
   message: string,
-  context?: Record<string, string | string[] | undefined>
-): Promise<AssistantResponse> {
-  const res = await fetch('/api/assistant/respond', {
+  context: Record<string, string | string[] | undefined> | undefined,
+  onPayload: (p: StreamPayload) => void,
+): Promise<void> {
+  const res = await fetch('/api/assistant/respond/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, context }),
@@ -34,12 +75,35 @@ async function sendMessage(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Request failed' }))
-    throw new Error(err.message ?? `HTTP ${res.status}`)
+    throw new Error((err as { message?: string }).message ?? `HTTP ${res.status}`)
   }
 
-  const json = await res.json()
-  if (json.status !== 'ok') throw new Error(json.message ?? 'Unknown error')
-  return json.data as AssistantResponse
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('No response body')
+
+  const decoder = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const parts = buf.split('\n\n')
+    buf = parts.pop() ?? ''
+    for (const block of parts) {
+      for (const line of block.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data:')) continue
+        const raw = trimmed.slice(5).trim()
+        let json: StreamPayload
+        try {
+          json = JSON.parse(raw) as StreamPayload
+        } catch {
+          continue
+        }
+        onPayload(json)
+      }
+    }
+  }
 }
 
 // ── Main workspace client ────────────────────────────────────────────────────
@@ -51,9 +115,21 @@ export function WorkspaceClient({
   initialPayers: Array<{ id: string; displayName: string }>
   initialDrugs: Array<{ key: string; displayName: string }>
 }) {
-  const [conversation, setConversation] = useState<ConversationEntry[]>([])
+  const [conversation, setConversation] = useState<ConversationEntry[]>(() => {
+    const response = createWelcomeIntroResponse(initialPayers, initialDrugs)
+    return [
+      {
+        id: 'welcome-intro',
+        role: 'assistant',
+        text: INTRO_ASSISTANT_TEXT,
+        response,
+      },
+    ]
+  })
   const [input, setInput] = useState('')
-  const [activeResponse, setActiveResponse] = useState<AssistantResponse | null>(null)
+  const [activeResponse, setActiveResponse] = useState<AssistantResponse | null>(() =>
+    createWelcomeIntroResponse(initialPayers, initialDrugs),
+  )
   const [showLoader, setShowLoader] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const chatScrollRef = useRef<HTMLDivElement>(null)
@@ -64,60 +140,6 @@ export function WorkspaceClient({
   // scrolling the document. Reset window scroll when entering this page.
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-  }, [])
-
-  // Silent greeting on mount. Cleanup + `cancelled` drops the first Strict Mode
-  // invocation’s in-flight result so dev doesn’t double the message; a real
-  // navigation away and back remounts fresh and runs this again.
-  useEffect(() => {
-    let cancelled = false
-    const entryId = Math.random().toString(36).slice(2)
-    const loadingId = `${entryId}_assistant`
-
-    setIsSubmitting(true)
-    setConversation([{ id: loadingId, role: 'assistant', text: '', isLoading: true }])
-
-    ;(async () => {
-      try {
-        const response = await sendMessage('hi', undefined)
-        if (cancelled) return
-        setConversation([
-          {
-            id: loadingId,
-            role: 'assistant',
-            text: response.assistantText,
-            response,
-            isLoading: false,
-          },
-        ])
-        if (response.loaderStages.length > 0) {
-          setShowLoader(true)
-          setActiveResponse(null)
-        } else {
-          setActiveResponse(response)
-          setShowLoader(false)
-        }
-      } catch (err) {
-        if (cancelled) return
-        const errMsg = err instanceof Error ? err.message : 'Something went wrong'
-        setConversation([
-          {
-            id: loadingId,
-            role: 'assistant',
-            text: '',
-            isLoading: false,
-            error: errMsg,
-          },
-        ])
-        setShowLoader(false)
-      } finally {
-        if (!cancelled) setIsSubmitting(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   useLayoutEffect(() => {
@@ -147,22 +169,41 @@ export function WorkspaceClient({
     const loadingId = entryId + '_assistant'
     setConversation(prev => [...prev, { id: loadingId, role: 'assistant', text: '', isLoading: true }])
 
+    let accumulated = ''
     try {
-      const response = await sendMessage(message, context)
-
-      setConversation(prev => prev.map(e =>
-        e.id === loadingId
-          ? { id: loadingId, role: 'assistant', text: response.assistantText, response, isLoading: false }
-          : e
-      ))
-
-      if (response.loaderStages.length > 0) {
-        setShowLoader(true)
-        setActiveResponse(null)
-      } else {
-        setActiveResponse(response)
-        setShowLoader(false)
-      }
+      await consumeAssistantStream(message, context, p => {
+        if (p.type === 'delta') {
+          accumulated += p.text
+          setConversation(prev => prev.map(e =>
+            e.id === loadingId
+              ? { id: loadingId, role: 'assistant', text: accumulated, isLoading: false }
+              : e
+          ))
+        }
+        if (p.type === 'complete') {
+          const response = p.data
+          setConversation(prev => prev.map(e =>
+            e.id === loadingId
+              ? { id: loadingId, role: 'assistant', text: response.assistantText, response, isLoading: false }
+              : e
+          ))
+          if (response.loaderStages.length > 0) {
+            setShowLoader(true)
+            setActiveResponse(null)
+          } else {
+            setActiveResponse(response)
+            setShowLoader(false)
+          }
+        }
+        if (p.type === 'error') {
+          setConversation(prev => prev.map(e =>
+            e.id === loadingId
+              ? { id: loadingId, role: 'assistant', text: '', isLoading: false, error: p.message }
+              : e
+          ))
+          setShowLoader(false)
+        }
+      })
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Something went wrong'
       setConversation(prev => prev.map(e =>
@@ -404,40 +445,51 @@ export function WorkspaceClient({
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
-            background: 'linear-gradient(135deg, rgba(43,80,255,0.04) 0%, transparent 55%)',
+            background: 'var(--bg-surface)',
           }}
         >
-          <motion.div
-            animate={reduceMotion ? {} : { rotate: [0, 6, -6, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #2B50FF 0%, #5B7CFF 45%, #0F766E 100%)',
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: 'var(--accent-blue-soft)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(43, 80, 255, 0.28)',
+              flexShrink: 0,
             }}
           >
-            <Sparkles style={{ width: 18, height: 18, color: '#fff' }} strokeWidth={2} />
-          </motion.div>
+            <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
+              <polygon
+                points="9,1.5 16.5,15.5 1.5,15.5"
+                fill="none"
+                stroke="url(#workspace-header-tri)"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+              <defs>
+                <linearGradient id="workspace-header-tri" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#2B50FF" />
+                  <stop offset="100%" stopColor="#0F766E" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
           <div style={{ minWidth: 0 }}>
             <p
               style={{
                 margin: 0,
-                fontSize: 15,
-                fontWeight: 700,
-                color: 'var(--ink-strong)',
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#111827',
                 letterSpacing: '-0.02em',
-                fontFamily: 'var(--font-serif)',
               }}
             >
-              PrismRx Copilot
+              Policy Workspace
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ink-muted)', lineHeight: 1.35 }}>
-              Document-grounded answers · indexed + live policy pull
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748B', lineHeight: 1.35 }}>
+              Indexed data + live web policy search · {initialPayers.length} payers · {initialDrugs.length} drugs in index
             </p>
           </div>
           <button
@@ -472,14 +524,16 @@ export function WorkspaceClient({
           ref={chatScrollRef}
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: '1rem 1rem 1rem 1.25rem',
+            padding: '0.75rem 1rem 0.5rem 1.25rem',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.25rem',
           }}
         >
+          {/* marginTop: auto pins the thread to the bottom when there are few messages */}
+          <div style={{ marginTop: 'auto', width: '100%' }}>
           <div style={{ position: 'relative', paddingLeft: 14 }}>
             <div
               aria-hidden
@@ -548,18 +602,19 @@ export function WorkspaceClient({
               ))}
             </AnimatePresence>
           </div>
+          </div>
         </div>
 
-        <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--line-soft)', background: 'var(--bg-surface)' }}>
+        <div style={{ padding: '0.5rem 1.25rem 0.65rem', borderTop: '1px solid var(--line-soft)', background: 'var(--bg-surface)', flexShrink: 0 }}>
           <div
             style={{
               display: 'flex',
               gap: '0.5rem',
-              alignItems: 'flex-end',
+              alignItems: 'center',
               background: 'var(--bg-soft)',
               borderRadius: 16,
               border: '1px solid var(--line-mid)',
-              padding: '0.5rem 0.6rem',
+              padding: '0.45rem 0.55rem',
               boxShadow: '0 2px 12px rgba(15, 23, 42, 0.04)',
             }}
           >
@@ -580,7 +635,10 @@ export function WorkspaceClient({
                 fontSize: 13,
                 color: 'var(--ink-strong)',
                 resize: 'none',
-                lineHeight: 1.5,
+                lineHeight: '20px',
+                margin: 0,
+                padding: '6px 8px',
+                boxSizing: 'border-box',
                 maxHeight: 120,
                 overflow: 'auto',
               }}

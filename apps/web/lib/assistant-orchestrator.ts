@@ -24,7 +24,16 @@ import type {
   BlockerItem,
 } from '@/lib/assistant-types'
 import { compileAssistantGraph } from '@/lib/assistant-graph'
-import { buildDocumentAnalysisUserPrompt, DOC_ANALYSIS_SYSTEM } from '@/lib/assistant-prompts'
+import {
+  buildDocumentAnalysisUserPrompt,
+  buildDocumentStreamingUserPrompt,
+  buildGeneralAssistantUserContent,
+  DOC_ANALYSIS_SYSTEM,
+  DOC_ANALYSIS_STREAMING_SYSTEM,
+  GENERAL_ASSISTANT_SYSTEM,
+} from '@/lib/assistant-prompts'
+import { getAssistStreamContext } from '@/lib/assistant-stream-context'
+import { callBedrockStream } from '@/lib/bedrock-stream'
 
 // ── Entity extraction ─────────────────────────────────────────────────────────
 
@@ -68,8 +77,10 @@ function detectIntent(
 ): AssistantIntent {
   const m = message.toLowerCase().trim()
 
-  const isGreeting = /^(hi|hello|hey|good morning|good afternoon|howdy|sup|yo|greetings)[\s!?.]*$/.test(m)
-  if (isGreeting) return 'greeting'
+  /** Short pleasantries only — route to conversational model, not policy lookup. */
+  const isPureGreeting =
+    /^(hi|hello|hey|good morning|good afternoon|howdy|sup|yo|greetings)[\s!?.]*$/.test(m)
+  if (isPureGreeting) return 'unknown'
 
   const wantsCoverage =
     /\b(cover|coverage|pa|prior auth|approved|reimburs|benefit|criteria|policy|check|does|will|is)\b/.test(m)
@@ -86,7 +97,7 @@ function detectIntent(
   if (/\b(compare|vs|versus|difference|which payer|all payers)\b/.test(m)) return 'compare_payers'
   if (/\b(what drugs|supported drug|available drug|list drug|show)\b/.test(m)) return 'explore_drugs'
 
-  // If we have both from context, treat as follow-up lookup
+  // If we have both from context and the message isn't a pure pleasantry, treat as lookup / follow-up
   if (payer && drug) return 'coverage_lookup'
 
   return 'unknown'
@@ -156,6 +167,34 @@ async function analyzeDocumentWithClaude(
 
   if (!isBedrockConfigured()) {
     return { analysis: buildFallbackAnalysis(policy, hasFullDocumentText), modelUsed: 'fallback' }
+  }
+
+  const streamCtx = getAssistStreamContext()
+  if (streamCtx?.onDelta) {
+    const streamUser = buildDocumentStreamingUserPrompt({
+      userMessage,
+      policy: {
+        payer: policy.payer,
+        drug_display: policy.drug_display,
+        effective_date: policy.effective_date,
+        version_label: policy.version_label,
+      },
+      truncatedDocumentText: truncated,
+      hasFullDocumentText,
+    })
+    try {
+      const streamed = await callBedrockStream(
+        [{ role: 'user', content: streamUser }],
+        DOC_ANALYSIS_STREAMING_SYSTEM,
+        1400,
+        60_000,
+        streamCtx.onDelta,
+      )
+      const answer = streamed.trim() || buildFallbackAnalysis(policy, hasFullDocumentText).answer
+      return { analysis: { answer, citations: [] }, modelUsed: 'bedrock' }
+    } catch {
+      return { analysis: buildFallbackAnalysis(policy, hasFullDocumentText), modelUsed: 'fallback' }
+    }
   }
 
   try {
@@ -390,59 +429,105 @@ function nextBestAction(policy: PolicyLookupFound): string {
 
 // ── Response builders ─────────────────────────────────────────────────────────
 
-async function buildGreetingResponse(requestId: string): Promise<AssistantResponse> {
-  const { payers, drugs } = await getSupportedOptions().catch(() => ({ payers: [], drugs: [] }))
+function metaForGeneralTurn(
+  payer: string | undefined,
+  drug: string | undefined,
+  modelUsed: 'bedrock' | 'fallback',
+): AssistantResponse['meta'] {
   return {
-    requestId,
-    intent: 'greeting',
-    assistantText:
-      "Hi — I'm here to help you interpret medical benefit drug policies (coverage, PA, step therapy) using the documents we can pull for your plan. Tell me the payer and drug you're working on—for example: \"Does UnitedHealthcare cover infliximab?\"",
-    widget: {
-      type: 'welcome_quick_actions',
-      props: { supportedPayerCount: payers.length, supportedDrugCount: drugs.length },
-    },
-    sideWidgets: [],
-    loaderStages: [],
-    meta: {
-      resolvedPayer: null, resolvedDrug: null,
-      isIndexed: true, dataSource: 'manual_indexed',
-      modelUsed: 'fallback', timestamp: new Date().toISOString(),
-    },
+    resolvedPayer: payer ?? null,
+    resolvedDrug: drug ?? null,
+    isIndexed: true,
+    dataSource: 'manual_indexed',
+    modelUsed,
+    timestamp: new Date().toISOString(),
   }
 }
 
-async function buildMissingFieldResponse(
+/** Bedrock-backed chat when no indexed policy lookup is triggered. */
+async function runGeneralAssistant(
   requestId: string,
-  intent: 'missing_payer' | 'missing_drug',
+  req: AssistantRequest,
   payer: string | undefined,
   drug: string | undefined,
+  intent: AssistantIntent,
 ): Promise<AssistantResponse> {
   const { payers, drugs } = await getSupportedOptions().catch(() => ({ payers: [], drugs: [] }))
-  return {
-    requestId,
+  const supportedPayersLine = payers.length ? payers.map(p => p.displayName).join(', ') : '(none listed)'
+  const supportedDrugsLine = drugs.length ? drugs.map(d => d.displayName).join(', ') : '(none listed)'
+  const userContent = buildGeneralAssistantUserContent({
+    req,
+    payer,
+    drug,
+    supportedPayersLine,
+    supportedDrugsLine,
+  })
+
+  const shell: Pick<AssistantResponse, 'intent' | 'widget' | 'sideWidgets' | 'loaderStages'> = {
     intent,
-    assistantText: intent === 'missing_payer'
-      ? `Which health plan should I look at${drug ? ` for ${drug}` : ''}? If you name the payer (e.g. Aetna, UHC, Cigna), I can run the lookup.`
-      : `Which drug or product are you asking about${payer ? ` for ${payer}` : ''}? A generic or brand name both work.`,
-    widget: {
-      type: 'coverage_intake_form',
-      props: { prefillPayer: payer, prefillDrug: drug },
-    },
-    sideWidgets: [{
-      type: 'supported_options_card',
-      props: {
-        requestedPayer: payer,
-        requestedDrug: drug,
-        supportedPayers: payers,
-        supportedDrugs: drugs,
-      },
-    }],
+    widget: null,
+    sideWidgets: [],
     loaderStages: [],
-    meta: {
-      resolvedPayer: payer ?? null, resolvedDrug: drug ?? null,
-      isIndexed: false, dataSource: 'manual_indexed',
-      modelUsed: 'fallback', timestamp: new Date().toISOString(),
-    },
+  }
+
+  if (!isBedrockConfigured()) {
+    return {
+      requestId,
+      ...shell,
+      assistantText:
+        'Conversational replies need Amazon Bedrock configured on the server (AWS_BEARER_TOKEN_BEDROCK). For a document-backed coverage readout, pick payer and drug in the workspace and ask something specific—e.g. "Does UnitedHealthcare cover infliximab?"',
+      meta: metaForGeneralTurn(payer, drug, 'fallback'),
+    }
+  }
+
+  const streamCtx = getAssistStreamContext()
+  if (streamCtx?.onDelta) {
+    try {
+      const text = await callBedrockStream(
+        [{ role: 'user', content: userContent }],
+        GENERAL_ASSISTANT_SYSTEM,
+        900,
+        30_000,
+        streamCtx.onDelta,
+      )
+      const assistantText = text.trim() || 'Sorry—I could not generate a reply. Please try again.'
+      return {
+        requestId,
+        ...shell,
+        assistantText,
+        meta: metaForGeneralTurn(payer, drug, 'bedrock'),
+      }
+    } catch {
+      return {
+        requestId,
+        ...shell,
+        assistantText: 'Something went wrong reaching the model. Please try again in a moment.',
+        meta: metaForGeneralTurn(payer, drug, 'fallback'),
+      }
+    }
+  }
+
+  try {
+    const text = await callBedrock(
+      [{ role: 'user', content: userContent }],
+      GENERAL_ASSISTANT_SYSTEM,
+      900,
+      30_000,
+    )
+    const assistantText = text.trim() || 'Sorry—I could not generate a reply. Please try again.'
+    return {
+      requestId,
+      ...shell,
+      assistantText,
+      meta: metaForGeneralTurn(payer, drug, 'bedrock'),
+    }
+  } catch {
+    return {
+      requestId,
+      ...shell,
+      assistantText: 'Something went wrong reaching the model. Please try again in a moment.',
+      meta: metaForGeneralTurn(payer, drug, 'fallback'),
+    }
   }
 }
 
@@ -547,7 +632,15 @@ async function buildCoverageFromSources(
     hasFullDocumentText,
   )
   const narrativeText = analysis.answer
-  const citationList = analysis.citations.filter(c => (c.quote ?? '').trim().length > 0)
+  let citationList = analysis.citations.filter(c => (c.quote ?? '').trim().length > 0)
+  if (citationList.length === 0 && policy.citations?.length) {
+    citationList = policy.citations.map(c => ({
+      page: c.page,
+      section: c.section,
+      quote: c.quote,
+      confidence: c.confidence,
+    }))
+  }
 
   const evidence = citationList.slice(0, 5).map((c, i) => ({
     id: `cit-${i}`,
@@ -646,7 +739,9 @@ async function buildCoverageFromSources(
     assistantText: narrativeText,
     widget: primaryWidget,
     sideWidgets,
-    loaderStages: buildLookupLoaderStages(policy.payer, policy.drug_display),
+    loaderStages: getAssistStreamContext()?.onDelta
+      ? []
+      : buildLookupLoaderStages(policy.payer, policy.drug_display),
     meta: {
       resolvedPayer: policy.payer,
       resolvedDrug: policy.drug_display,
@@ -711,38 +806,6 @@ async function buildLiveOnlyFromResult(
 }
 
 // ── Main orchestrator (LangGraph routes intent → one terminal node) ───────────
-
-async function runExploreCompareResponse(
-  requestId: string,
-  intent: 'explore_drugs' | 'compare_payers',
-): Promise<AssistantResponse> {
-  const { payers, drugs } = await getSupportedOptions().catch(() => ({ payers: [], drugs: [] }))
-  return {
-    requestId,
-    intent,
-    assistantText:
-      intent === 'explore_drugs'
-        ? `The indexed dataset covers ${drugs.length} drug families. Here's what's available.`
-        : `The indexed dataset covers ${payers.length} payers. Select a payer and drug to check coverage.`,
-    widget: {
-      type: 'supported_options_card',
-      props: {
-        supportedPayers: payers,
-        supportedDrugs: drugs,
-      },
-    },
-    sideWidgets: [{ type: 'limitation_notice', props: {} }],
-    loaderStages: [],
-    meta: {
-      resolvedPayer: null,
-      resolvedDrug: null,
-      isIndexed: true,
-      dataSource: 'manual_indexed',
-      modelUsed: 'fallback',
-      timestamp: new Date().toISOString(),
-    },
-  }
-}
 
 async function runCoveragePipeline(
   requestId: string,
@@ -816,9 +879,7 @@ function getAssistantGraph() {
         const intent = detectIntent(req.message, payer, drug)
         return { payer, drug, intent }
       },
-      runGreeting: buildGreetingResponse,
-      runMissing: buildMissingFieldResponse,
-      runExploreCompare: runExploreCompareResponse,
+      runGeneral: runGeneralAssistant,
       runCoverage: runCoveragePipeline,
     })
   }
