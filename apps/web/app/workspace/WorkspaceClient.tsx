@@ -828,36 +828,6 @@ function AssistantBubble({ text, response, isLatest, onShowReport }: {
             Open full report →
           </button>
         )}
-        {response?.meta && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--ink-faint)',
-              }}
-            >
-              Source
-            </span>
-            <span
-              style={{
-                fontSize: 10,
-                padding: '3px 8px',
-                borderRadius: 9999,
-                background: response.meta.dataSource === 'manual_indexed' ? 'var(--accent-blue-soft)' : 'rgba(15,118,110,0.12)',
-                color: response.meta.dataSource === 'manual_indexed' ? 'var(--accent-blue)' : 'var(--accent-teal)',
-                fontWeight: 600,
-              }}
-            >
-              {response.meta.dataSource === 'manual_indexed' ? 'Indexed snapshot' : 'Live extraction'}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>
-              {response.meta.modelUsed === 'bedrock' ? 'Claude (Bedrock)' : 'Structured fallback'}
-            </span>
-          </div>
-        )}
       </div>
     </div>
   )
