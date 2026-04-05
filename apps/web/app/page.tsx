@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
 import {
   ArrowRight,
-  CheckCircle2, Shield, FileText, Zap,
+  CheckCircle2, Shield, FileText, Clock,
   Sparkles, MessageSquare, Search, Brain,
 } from 'lucide-react'
 import { PolicyPrism } from '@/components/3d/HeroScene'
@@ -20,7 +20,7 @@ import {
 const PAIN_CARDS = [
   {
     q: 'Does this payer cover my drug?',
-    a: 'Ask the workspace in plain English. The agent pulls indexed policy, resolves payer and drug, and returns a structured coverage verdict with citations.',
+    a: 'Type your question in plain English. PrismRx pulls the indexed payer policy, resolves the match, and returns a structured verdict with citations — in seconds.',
     tag: 'Coverage',
     accent: '#2B50FF',
     bg: '#ECF1FF',
@@ -28,7 +28,7 @@ const PAIN_CARDS = [
   },
   {
     q: 'What criteria will block my PA?',
-    a: 'The agent extracts step therapy requirements, diagnosis gates, and prior treatment failures — directly from source policy text, not summaries.',
+    a: 'Step therapy requirements, diagnosis gates, prior treatment failures — extracted directly from source policy text. Not summaries. Not guesses.',
     tag: 'Prior Auth',
     accent: '#C2410C',
     bg: '#FFF1EB',
@@ -36,7 +36,7 @@ const PAIN_CARDS = [
   },
   {
     q: 'Is there a lower-friction path?',
-    a: 'Ask which payer has the most lenient criteria for this drug. The agent scores access burden and surfaces the clearest approval path.',
+    a: 'Ask which payer has the most lenient criteria for this drug. PrismRx scores access burden across indexed policies and surfaces the clearest approval path.',
     tag: 'Access Path',
     accent: '#0F766E',
     bg: '#EAF8F4',
@@ -47,29 +47,29 @@ const PAIN_CARDS = [
 const HOW_IT_WORKS = [
   {
     n: '01',
-    title: 'You ask in plain English',
-    body: 'Type or speak any coverage question — payer, drug, diagnosis, prior therapies — in any format.',
+    title: 'Ask in plain English',
+    body: 'Type or speak any coverage question — payer, drug, diagnosis, prior therapies — in any format, any order.',
     accent: '#2B50FF',
   },
   {
     n: '02',
-    title: 'The agent reasons over policy',
-    body: 'A LangGraph agentic pipeline routes your query, crawls or searches indexed policy documents, and extracts structured criteria.',
+    title: 'Policy is searched and extracted',
+    body: 'PrismRx routes your query, searches indexed policy documents or the live web, and pulls structured criteria from source text.',
     accent: '#7C3AED',
   },
   {
     n: '03',
-    title: 'Structured intelligence — cited',
-    body: 'Coverage verdict, blocker list, evidence citations, and next-best-action — all traceable to the exact policy page.',
+    title: 'Cited verdict — instantly',
+    body: 'Coverage decision, PA blockers, step therapy, and next steps — every field traceable to the exact policy page and section.',
     accent: '#0F766E',
   },
 ]
 
 const TRUST_ITEMS = [
-  { icon: Shield, label: 'Public sources only', body: 'Every policy pulled from publicly available payer portals. No proprietary data.' },
+  { icon: Shield, label: 'Public sources only', body: 'Every policy pulled from publicly available payer portals. No proprietary data, no guessing.' },
   { icon: CheckCircle2, label: 'Citations for every field', body: 'Each extracted criterion traces back to an exact page and section in the source document.' },
   { icon: FileText, label: 'Synthetic cases only', body: 'No real patient data, no PHI, no insurance identifiers are stored or processed.' },
-  { icon: Zap, label: 'End-to-end agentic pipeline', body: 'LangGraph routing → live web crawl → Claude extraction → structured widget output in one system.' },
+  { icon: Clock, label: 'Seconds, not hours', body: 'What takes a PA coordinator 20 minutes takes PrismRx under five seconds. Same source. Better answer.' },
 ]
 
 // ── Workspace preview (live React, no AI images) ──────────────────────────
@@ -143,29 +143,17 @@ export default function LandingPage() {
           animate="show"
           style={{ position: 'relative', zIndex: 10 }}
         >
-          {/* Eyebrow */}
-          <motion.div variants={fadeUp} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: '1.25rem' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '0.35rem 0.75rem', borderRadius: 9999,
-              background: 'rgba(43,80,255,0.09)', border: '1px solid rgba(43,80,255,0.2)',
-              fontSize: 12, fontWeight: 600, color: '#2B50FF',
-            }}>
-              <Sparkles style={{ width: 12, height: 12 }} />
-              Agentic AI · LangGraph + Claude
-            </span>
-          </motion.div>
-
           {/* Headline */}
           <motion.h1
             variants={fadeUp}
             className="mb-6"
             style={{
-              fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
-              fontWeight: 600,
+              fontSize: 'clamp(2.75rem, 5.5vw, 5rem)',
+              fontWeight: 700,
               color: 'var(--ink-strong)',
-              letterSpacing: '-0.04em',
-              lineHeight: 1.05,
+              letterSpacing: '-0.045em',
+              lineHeight: 1.0,
+              marginBottom: '1.25rem',
             }}
           >
             Drug coverage,
@@ -182,9 +170,9 @@ export default function LandingPage() {
           <motion.p
             variants={fadeUp}
             className="text-body-l mb-10"
-            style={{ color: 'var(--ink-body)', lineHeight: 1.65, maxWidth: '44ch' }}
+            style={{ color: 'var(--ink-body)', lineHeight: 1.6, maxWidth: '38ch', fontSize: '1.125rem' }}
           >
-            PrismRx's agentic copilot understands your question, pulls the right indexed payer policy, extracts PA criteria and blockers, and returns a structured, cited answer — in seconds.
+            Know before you prescribe. PrismRx surfaces payer requirements, PA blockers, and coverage verdicts — cited from source, in seconds.
           </motion.p>
 
           {/* CTAs */}
@@ -214,7 +202,7 @@ export default function LandingPage() {
           <motion.div variants={fadeIn} className="flex flex-wrap gap-6">
             {[
               { v: '5 payers', l: 'indexed' },
-              { v: 'LangGraph', l: 'agentic routing' },
+              { v: '< 5 sec', l: 'to cited answer' },
               { v: '39×', l: 'weekly prior auths / physician*' },
             ].map(({ v, l }) => (
               <div key={l}>
@@ -244,18 +232,17 @@ export default function LandingPage() {
       <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div className="text-center mb-14" {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">What users actually ask</motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
                 fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'var(--ink-strong)',
-                letterSpacing: '-0.03em',
+                letterSpacing: '-0.035em',
                 lineHeight: 1.1,
               }}
             >
-              Three questions. One agent.
+              Three questions.<br />Instant answers.
             </motion.h2>
           </motion.div>
 
@@ -305,22 +292,19 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             {/* Text */}
             <motion.div {...sectionEntry} variants={stagger}>
-              <motion.span variants={fadeUp} style={{ display: 'inline-block', marginBottom: '1rem', fontSize: 13, fontWeight: 600, color: '#2B50FF', fontFamily: 'var(--font-ibm-plex-mono,monospace)' }}>
-                01 — The AI Workspace
-              </motion.span>
-              <motion.h3 variants={fadeUp} style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: '1.25rem' }}>
-                Conversational coverage intelligence
+              <motion.h3 variants={fadeUp} style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', fontWeight: 700, color: 'var(--ink-strong)', letterSpacing: '-0.035em', lineHeight: 1.1, marginBottom: '1.25rem' }}>
+                Coverage intelligence,<br />built to be asked.
               </motion.h3>
-              <motion.p variants={fadeUp} style={{ fontSize: 15, color: 'var(--ink-body)', lineHeight: 1.7, maxWidth: '48ch', marginBottom: '1.5rem' }}>
-                The workspace is a two-pane agentic interface. Left: a chat stream where you ask coverage questions in natural language. Right: a live intelligence deck — structured widgets for coverage verdict, PA blockers, step therapy requirements, evidence citations, and more.
+              <motion.p variants={fadeUp} style={{ fontSize: 15, color: 'var(--ink-body)', lineHeight: 1.7, maxWidth: '44ch', marginBottom: '1.5rem' }}>
+                Ask a question. Get a structured answer with citations. The workspace retrieves the right policy, extracts PA criteria, and surfaces blockers — all without leaving the chat.
               </motion.p>
               <motion.ul variants={fadeUp} style={{ margin: '0 0 2rem', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {[
-                  'LangGraph routes your query to the right policy tool',
-                  'Live web crawl + indexed corpus retrieval',
-                  'Claude extracts structured criteria and blockers',
+                  'Indexed corpus + live web policy retrieval',
+                  'PA blockers and step therapy — structured, not summarised',
                   'Every answer cites the exact policy page',
                   'Voice input — speak your question naturally',
+                  'Panel slides in only when there\'s something to show',
                 ].map(item => (
                   <li key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--ink-body)' }}>
                     <CheckCircle2 style={{ width: 15, height: 15, color: '#2B50FF', flexShrink: 0, marginTop: 2 }} />
@@ -382,7 +366,7 @@ export default function LandingPage() {
                   style={{ color: '#2B50FF', background: 'var(--bg-surface)', border: '1px solid var(--line-mid)', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
                 >
                   <Sparkles style={{ width: 10, height: 10 }} />
-                  Agentic · cited
+                  Policy-direct · cited
                 </span>
               </motion.div>
             </motion.div>
@@ -394,21 +378,20 @@ export default function LandingPage() {
       <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div className="text-center mb-14" {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">Under the hood</motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
                 fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'var(--ink-strong)',
-                letterSpacing: '-0.03em',
+                letterSpacing: '-0.035em',
                 lineHeight: 1.1,
               }}
             >
-              From question
+              Question in.
               <br />
               <span className="font-serif-accent" style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}>
-                to structured policy intelligence.
+                Cited verdict out.
               </span>
             </motion.h2>
           </motion.div>
@@ -438,7 +421,6 @@ export default function LandingPage() {
       <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div className="text-center mb-14 mx-auto" style={{ maxWidth: '48ch' }} {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">Methodology</motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
@@ -486,20 +468,19 @@ export default function LandingPage() {
               fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
               fontStyle: 'italic',
               color: 'var(--ink-strong)',
-              letterSpacing: '-0.03em',
-              lineHeight: 1.15,
+              letterSpacing: '-0.035em',
+              lineHeight: 1.12,
               marginBottom: '1.5rem',
             }}
           >
-            Ask the policy.<br />
-            Get a cited answer.
+            Know before you prescribe.
           </motion.p>
           <motion.p
             variants={fadeUp}
             className="text-body-l"
-            style={{ color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '44ch', margin: '0 auto 2.5rem' }}
+            style={{ color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '42ch', margin: '0 auto 2.5rem', fontSize: '1.0625rem', lineHeight: 1.65 }}
           >
-            The PrismRx workspace is an agentic copilot for medical benefit drug access — built for the 39 prior authorizations your physicians handle every week.
+            PrismRx turns payer policy documents into instant, cited answers — so your team spends less time on the phone and more time with patients.
           </motion.p>
           <motion.div variants={fadeUp} className="flex flex-wrap justify-center gap-3">
             <Link href="/workspace">

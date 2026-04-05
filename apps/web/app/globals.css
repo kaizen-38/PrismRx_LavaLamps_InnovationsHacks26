@@ -418,3 +418,82 @@ body:has([data-workspace-page]) > footer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Markdown bubble: remove trailing paragraph gap ─────────────────────────── */
+.assistant-bubble-md > p:last-child,
+.assistant-bubble-md > ul:last-child,
+.assistant-bubble-md > ol:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Markdown tables ─────────────────────────────────────────────────────────── */
+.assistant-bubble-md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  margin: 0.5em 0;
+}
+.assistant-bubble-md th,
+.assistant-bubble-md td {
+  border: 1px solid var(--line-soft);
+  padding: 0.35em 0.6em;
+  text-align: left;
+}
+.assistant-bubble-md th {
+  background: var(--bg-soft);
+  font-weight: 650;
+}
+
+/* ── Workspace aurora orbs ───────────────────────────────────────────────────── */
+@keyframes orb-drift-1 {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  33%  { transform: translate(8%, -12%) scale(1.08); }
+  66%  { transform: translate(-6%, 10%) scale(0.95); }
+  100% { transform: translate(0%, 0%) scale(1); }
+}
+@keyframes orb-drift-2 {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  33%  { transform: translate(-10%, 8%) scale(1.06); }
+  66%  { transform: translate(12%, -6%) scale(0.97); }
+  100% { transform: translate(0%, 0%) scale(1); }
+}
+@keyframes orb-drift-3 {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  50%  { transform: translate(6%, 14%) scale(1.1); }
+  100% { transform: translate(0%, 0%) scale(1); }
+}
+
+.workspace-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  will-change: transform;
+}
+.workspace-orb-1 {
+  width: 560px;
+  height: 560px;
+  background: radial-gradient(circle, rgba(43,80,255,0.18) 0%, rgba(43,80,255,0.04) 70%);
+  top: -100px;
+  left: -80px;
+  animation: orb-drift-1 28s ease-in-out infinite;
+}
+.workspace-orb-2 {
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, rgba(124,58,237,0.03) 70%);
+  top: 30%;
+  right: -60px;
+  animation: orb-drift-2 34s ease-in-out infinite;
+}
+.workspace-orb-3 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(15,118,110,0.14) 0%, rgba(15,118,110,0.03) 70%);
+  bottom: 80px;
+  left: 30%;
+  animation: orb-drift-3 24s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-orb { animation: none; }
+}

@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Send, RotateCcw, AlertCircle, Sparkles, Grid3x3, Radio, Mic, MicOff, Volume2 } from 'lucide-react'
+import { Send, RotateCcw, AlertCircle, Grid3x3, Mic, MicOff, Volume2 } from 'lucide-react'
 import type { AssistantResponse } from '@/lib/assistant-types'
 import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
 import { WidgetReveal } from '@/components/assistant/WidgetReveal'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,7 +30,7 @@ type StreamPayload =
 
 /** Only hardcoded assistant copy: first bubble when the workspace opens (all later replies come from the API). */
 const INTRO_ASSISTANT_TEXT =
-  'Hi — I\'m here to help you interpret medical benefit drug policies (coverage, PA, step therapy) using the documents we can pull for your plan. Tell me the payer and drug you\'re working on—for example: "Does UnitedHealthcare cover infliximab?"'
+  'Hi — ask me about any payer and drug. I\'ll pull the policy, extract PA requirements, step therapy criteria, and coverage rules — and cite every answer back to the source. Try: "Does Aetna cover infliximab?" or "What are Cigna\'s PA requirements for ocrelizumab?"'
 
 function createWelcomeIntroResponse(
   initialPayers: Array<{ id: string; displayName: string }>,
@@ -64,12 +66,13 @@ function createWelcomeIntroResponse(
 async function consumeAssistantStream(
   message: string,
   context: Record<string, string | string[] | undefined> | undefined,
+  history: Array<{ role: 'user' | 'assistant'; text: string }>,
   onPayload: (p: StreamPayload) => void,
 ): Promise<void> {
   const res = await fetch('/api/assistant/respond/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, context }),
+    body: JSON.stringify({ message, context, history }),
     signal: AbortSignal.timeout(120_000),
   })
 
@@ -169,9 +172,14 @@ export function WorkspaceClient({
     const loadingId = entryId + '_assistant'
     setConversation(prev => [...prev, { id: loadingId, role: 'assistant', text: '', isLoading: true }])
 
+    // Build history from completed (non-loading, non-error, non-welcome) turns
+    const history = conversation
+      .filter(e => e.id !== 'welcome-intro' && !e.isLoading && !e.error && e.text)
+      .map(e => ({ role: e.role, text: e.text }))
+
     let accumulated = ''
     try {
-      await consumeAssistantStream(message, context, p => {
+      await consumeAssistantStream(message, context, history, p => {
         if (p.type === 'delta') {
           accumulated += p.text
           setConversation(prev => prev.map(e =>
@@ -215,7 +223,7 @@ export function WorkspaceClient({
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting])
+  }, [isSubmitting, conversation])
 
   const handleLoaderComplete = useCallback(() => {
     setShowLoader(false)
@@ -271,6 +279,8 @@ export function WorkspaceClient({
   const audioRef = useRef<HTMLAudioElement | null>(null)
   // Ref-based speaking guard prevents stale closure re-entrancy
   const isSpeakingRef = useRef(false)
+  // Only auto-speak when the user has activated voice via the mic button
+  const voiceEnabledRef = useRef(false)
 
   // Stop any playing audio
   const stopAudio = useCallback(() => {
@@ -309,13 +319,14 @@ export function WorkspaceClient({
     }
   }, [stopAudio])
 
-  // Auto-speak every new assistant reply
+  // Auto-speak only when user has activated voice via mic button
   const lastAssistantText = useMemo(
     () => conversation.findLast(e => e.role === 'assistant' && e.text && !e.isLoading)?.text ?? '',
     [conversation]
   )
   const prevSpokenRef = useRef('')
   useEffect(() => {
+    if (!voiceEnabledRef.current) return // silent unless user pressed mic
     if (lastAssistantText && lastAssistantText !== prevSpokenRef.current) {
       prevSpokenRef.current = lastAssistantText
       speakText(lastAssistantText)
@@ -333,6 +344,7 @@ export function WorkspaceClient({
 
   // Start recording via MediaRecorder
   const startRecording = useCallback(async () => {
+    voiceEnabledRef.current = true // user explicitly activated voice
     stopAudio()
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -413,6 +425,18 @@ export function WorkspaceClient({
     return { label: 'Ready', tone: 'idle' as const }
   }, [showLoader, displayResponse?.meta?.dataSource])
 
+  // ── Panel open/close ─────────────────────────────────────────────────────
+  const [panelOpen, setPanelOpen] = useState(false)
+
+  // Auto-open panel for real queries only — not for the welcome greeting widget
+  useEffect(() => {
+    // showLoader only fires on policy lookups (loaderStages > 0), never on greetings
+    if (showLoader) setPanelOpen(true)
+  }, [showLoader])
+  useEffect(() => {
+    if (displayWidget && displayWidget.type !== 'welcome_quick_actions') setPanelOpen(true)
+  }, [displayWidget])
+
   return (
     <div
       data-workspace-page
@@ -429,15 +453,28 @@ export function WorkspaceClient({
       {/* ── LEFT: conversation stream ───────────────────────────────────── */}
       <div
         style={{
-          width: 'clamp(300px, 38%, 480px)',
+          width: panelOpen ? 'clamp(300px, 38%, 480px)' : '100%',
+          maxWidth: panelOpen ? 480 : '100%',
+          transition: 'width 0.38s cubic-bezier(0.22,1,0.36,1), max-width 0.38s cubic-bezier(0.22,1,0.36,1)',
           display: 'flex',
           flexDirection: 'column',
-          borderRight: '1px solid var(--line-soft)',
-          background: 'linear-gradient(180deg, var(--bg-surface) 0%, rgba(255,255,255,0.92) 100%)',
+          borderRight: panelOpen ? '1px solid var(--line-soft)' : 'none',
+          background: panelOpen
+            ? 'linear-gradient(180deg, var(--bg-surface) 0%, rgba(255,255,255,0.92) 100%)'
+            : 'var(--bg-canvas)',
+          position: 'relative',
           flexShrink: 0,
-          boxShadow: '4px 0 32px rgba(15, 23, 42, 0.04)',
+          boxShadow: panelOpen ? '4px 0 32px rgba(15, 23, 42, 0.04)' : 'none',
         }}
       >
+        {/* Aurora orbs — only visible when panel is closed */}
+        {!panelOpen && (
+          <>
+            <div className="workspace-orb workspace-orb-1" aria-hidden />
+            <div className="workspace-orb workspace-orb-2" aria-hidden />
+            <div className="workspace-orb workspace-orb-3" aria-hidden />
+          </>
+        )}
         <div
           style={{
             padding: '1rem 1.25rem',
@@ -527,13 +564,22 @@ export function WorkspaceClient({
             minHeight: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: '0.75rem 1rem 0.5rem 1.25rem',
+            padding: '0.75rem 1rem 0.5rem 1rem',
             display: 'flex',
             flexDirection: 'column',
+            alignItems: 'center',
+            background: 'transparent',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
-          {/* marginTop: auto pins the thread to the bottom when there are few messages */}
-          <div style={{ marginTop: 'auto', width: '100%' }}>
+          {/* Centering wrapper: wide when panel closed, full-width when panel open */}
+          <div style={{
+            marginTop: 'auto',
+            width: '100%',
+            maxWidth: panelOpen ? '100%' : 860,
+            transition: 'max-width 0.38s cubic-bezier(0.22,1,0.36,1)',
+          }}>
           <div style={{ position: 'relative', paddingLeft: 14 }}>
             <div
               aria-hidden
@@ -593,7 +639,8 @@ export function WorkspaceClient({
                           text={entry.text}
                           response={entry.response}
                           isLatest={entry.id === lastAssistantId}
-                          onShowReport={() => entry.response && setActiveResponse(entry.response)}
+                          panelOpen={panelOpen}
+                          onShowReport={() => { if (entry.response) { setActiveResponse(entry.response); setPanelOpen(true) } }}
                         />
                       )}
                     </div>
@@ -605,7 +652,12 @@ export function WorkspaceClient({
           </div>
         </div>
 
-        <div style={{ padding: '0.5rem 1.25rem 0.65rem', borderTop: '1px solid var(--line-soft)', background: 'var(--bg-surface)', flexShrink: 0 }}>
+        <div style={{ padding: '0.5rem 1rem 0.65rem', borderTop: '1px solid var(--line-soft)', background: 'var(--bg-surface)', flexShrink: 0, display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: '100%',
+            maxWidth: panelOpen ? '100%' : 860,
+            transition: 'max-width 0.38s cubic-bezier(0.22,1,0.36,1)',
+          }}>
           <div
             style={{
               display: 'flex',
@@ -724,209 +776,167 @@ export function WorkspaceClient({
               <Send style={{ width: 15, height: 15 }} />
             </motion.button>
           </div>
+          </div>
         </div>
       </div>
 
-      {/* ── RIGHT: insight deck ─────────────────────────────────────────── */}
-      <div
-        role="region"
-        aria-label="Coverage intelligence deck"
-        aria-busy={showLoader}
-        style={{
-          flex: 1,
-          position: 'relative',
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        <div className="workspace-deck-mesh" aria-hidden />
-        <div className="workspace-deck-grid" aria-hidden />
-
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-            padding: '1rem 1.25rem',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: '1rem',
-              marginBottom: '0.85rem',
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', minWidth: 0 }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 14,
-                  background: 'rgba(255,255,255,0.85)',
-                  border: '1px solid var(--line-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: 'var(--shadow-xs)',
-                }}
-              >
-                <Grid3x3 style={{ width: 20, height: 20, color: 'var(--accent-blue)' }} strokeWidth={2} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: 'var(--accent-blue)',
-                  }}
-                >
-                  Intelligence deck
-                </p>
-                <p
-                  style={{
-                    margin: '4px 0 0',
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: 'var(--ink-strong)',
-                    letterSpacing: '-0.02em',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {deckSubtitle}
-                </p>
-              </div>
-            </div>
-            <DeckBadge badge={deckBadge} reduceMotion={Boolean(reduceMotion)} />
-          </div>
-
-          <div
-            className="workspace-deck-glass"
+      {/* ── RIGHT: insight panel — slides in like Claude artifacts ────── */}
+      <AnimatePresence>
+        {panelOpen && (
+          <motion.div
+            key="insight-panel"
+            role="region"
+            aria-label="Coverage intelligence deck"
+            aria-busy={showLoader}
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             style={{
               flex: 1,
-              minHeight: 0,
+              position: 'relative',
+              minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              padding: '1rem 1.1rem',
             }}
           >
-            <AnimatePresence mode="wait">
-              {showLoader ? (
-                <motion.div
-                  key="loader"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.25 }}
-                  style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
-                >
-                  <StagedLoader stages={latestLoaderStages} onComplete={handleLoaderComplete} />
-                </motion.div>
-              ) : displayWidget ? (
-                <motion.div
-                  key="widgets"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                  style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    minHeight: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <WidgetReveal delay={0} style={{ marginBottom: 2 }}>
-                    <WidgetRenderer
-                      widget={displayWidget}
-                      onAction={handleAction}
-                      onIntakeSubmit={handleIntakeSubmit}
-                      onLookup={handleLookup}
-                      onNewLookup={() => handleAction('check_coverage')}
-                      supportedPayers={initialPayers}
-                      supportedDrugs={initialDrugs}
-                    />
-                  </WidgetReveal>
+            <div className="workspace-deck-mesh" aria-hidden />
+            <div className="workspace-deck-grid" aria-hidden />
 
-                  {displayResponse?.sideWidgets.map((w, i) => (
-                    <WidgetReveal key={i} delay={0.06 + i * 0.06} style={{ marginBottom: 2 }}>
-                      <WidgetRenderer
-                        widget={w}
-                        onAction={handleAction}
-                        onIntakeSubmit={handleIntakeSubmit}
-                        onLookup={handleLookup}
-                        onNewLookup={() => handleAction('check_coverage')}
-                        supportedPayers={initialPayers}
-                        supportedDrugs={initialDrugs}
-                      />
-                    </WidgetReveal>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="empty"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    padding: '2rem 1.5rem',
-                    minHeight: 200,
-                  }}
-                >
+            <div
+              style={{
+                position: 'relative',
+                zIndex: 1,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
+                padding: '1rem 1.25rem',
+              }}
+            >
+              {/* Panel header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  marginBottom: '0.85rem',
+                  flexShrink: 0,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', minWidth: 0 }}>
                   <div
                     style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 22,
-                      background: 'linear-gradient(135deg, rgba(43,80,255,0.12), rgba(15,118,110,0.1))',
-                      border: '1px solid rgba(43,80,255,0.15)',
+                      width: 40,
+                      height: 40,
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.85)',
+                      border: '1px solid var(--line-soft)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '1rem',
+                      boxShadow: 'var(--shadow-xs)',
                     }}
                   >
-                    <Radio style={{ width: 28, height: 28, color: 'var(--accent-blue)' }} strokeWidth={1.75} />
+                    <Grid3x3 style={{ width: 20, height: 20, color: 'var(--accent-blue)' }} strokeWidth={2} />
                   </div>
-                  <p
-                    className="text-gradient-accent"
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
+                      Intelligence deck
+                    </p>
+                    <p style={{ margin: '4px 0 0', fontSize: 15, fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                      {deckSubtitle}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                  <DeckBadge badge={deckBadge} reduceMotion={Boolean(reduceMotion)} />
+                  {/* Close panel */}
+                  <button
+                    type="button"
+                    onClick={() => setPanelOpen(false)}
+                    title="Close panel"
                     style={{
-                      margin: 0,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      fontFamily: 'var(--font-serif)',
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      border: '1px solid var(--line-soft)',
+                      background: 'rgba(255,255,255,0.8)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--ink-muted)',
+                      flexShrink: 0,
                     }}
                   >
-                    Awaiting your next question
-                  </p>
-                  <p style={{ margin: '0.5rem 0 0', fontSize: 13, color: 'var(--ink-muted)', maxWidth: 280, lineHeight: 1.5 }}>
-                    Coverage widgets, evidence, and criteria render here as soon as the assistant resolves payer + drug.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                      <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Panel content */}
+              <div
+                className="workspace-deck-glass"
+                style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '1rem 1.1rem' }}
+              >
+                <AnimatePresence mode="wait">
+                  {showLoader ? (
+                    <motion.div
+                      key="loader"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.25 }}
+                      style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+                    >
+                      <StagedLoader stages={latestLoaderStages} onComplete={handleLoaderComplete} />
+                    </motion.div>
+                  ) : displayWidget ? (
+                    <motion.div
+                      key="widgets"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+                    >
+                      <WidgetReveal delay={0} style={{ marginBottom: 2 }}>
+                        <WidgetRenderer
+                          widget={displayWidget}
+                          onAction={handleAction}
+                          onIntakeSubmit={handleIntakeSubmit}
+                          onLookup={handleLookup}
+                          onNewLookup={() => handleAction('check_coverage')}
+                          supportedPayers={initialPayers}
+                          supportedDrugs={initialDrugs}
+                        />
+                      </WidgetReveal>
+                      {displayResponse?.sideWidgets.map((w, i) => (
+                        <WidgetReveal key={i} delay={0.06 + i * 0.06} style={{ marginBottom: 2 }}>
+                          <WidgetRenderer
+                            widget={w}
+                            onAction={handleAction}
+                            onIntakeSubmit={handleIntakeSubmit}
+                            onLookup={handleLookup}
+                            onNewLookup={() => handleAction('check_coverage')}
+                            supportedPayers={initialPayers}
+                            supportedDrugs={initialDrugs}
+                          />
+                        </WidgetReveal>
+                      ))}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -1008,11 +1018,12 @@ function TypingIndicator() {
   )
 }
 
-function AssistantBubble({ text, response, isLatest, onShowReport }: {
+function AssistantBubble({ text, response, isLatest, onShowReport, panelOpen }: {
   text: string
   response?: AssistantResponse
   isLatest: boolean
   onShowReport: () => void
+  panelOpen: boolean
 }) {
   if (!text) return null
   const isIndexed = response?.meta.isIndexed
@@ -1044,10 +1055,38 @@ function AssistantBubble({ text, response, isLatest, onShowReport }: {
             border: '1px solid var(--line-soft)',
             boxShadow: 'var(--shadow-xs)',
           }}
+          className="assistant-bubble-md"
         >
-          {text}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({ children }) => <p style={{ margin: '0 0 0.6em', lineHeight: 1.6 }}>{children}</p>,
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              ul: ({ children }) => <ul style={{ margin: '0.4em 0 0.6em', paddingLeft: '1.25em' }}>{children}</ul>,
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              ol: ({ children }) => <ol style={{ margin: '0.4em 0 0.6em', paddingLeft: '1.25em' }}>{children}</ol>,
+              li: ({ children }) => <li style={{ marginBottom: '0.25em' }}>{children}</li>,
+              strong: ({ children }) => <strong style={{ fontWeight: 650, color: 'var(--ink-heading)' }}>{children}</strong>,
+              code: ({ children }) => (
+                <code style={{ background: 'var(--bg-soft)', borderRadius: 4, padding: '0.1em 0.35em', fontSize: '0.9em', fontFamily: 'monospace' }}>{children}</code>
+              ),
+              pre: ({ children }) => (
+                <pre style={{ background: 'var(--bg-soft)', borderRadius: 8, padding: '0.75em 1em', overflowX: 'auto', fontSize: '0.85em', margin: '0.5em 0' }}>{children}</pre>
+              ),
+              h1: ({ children }) => <h1 style={{ fontSize: '1.1em', fontWeight: 700, margin: '0.5em 0 0.3em', color: 'var(--ink-heading)' }}>{children}</h1>,
+              h2: ({ children }) => <h2 style={{ fontSize: '1.05em', fontWeight: 700, margin: '0.5em 0 0.3em', color: 'var(--ink-heading)' }}>{children}</h2>,
+              h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 650, margin: '0.4em 0 0.25em', color: 'var(--ink-heading)' }}>{children}</h3>,
+              blockquote: ({ children }) => (
+                <blockquote style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '0.75em', margin: '0.4em 0', color: 'var(--ink-muted)', fontStyle: 'italic' }}>{children}</blockquote>
+              ),
+              a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'underline' }}>{children}</a>,
+              hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--line-soft)', margin: '0.75em 0' }} />,
+            }}
+          >
+            {text}
+          </ReactMarkdown>
         </div>
-        {hasReport && isLatest && (
+        {hasReport && isLatest && !panelOpen && (
           <button
             type="button"
             onClick={onShowReport}
@@ -1065,7 +1104,7 @@ function AssistantBubble({ text, response, isLatest, onShowReport }: {
               boxShadow: '0 6px 16px rgba(43,80,255,0.2)',
             }}
           >
-            Open full report →
+            Open report →
           </button>
         )}
       </div>
