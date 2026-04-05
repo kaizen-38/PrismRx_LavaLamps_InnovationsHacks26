@@ -5,13 +5,13 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
 import {
   ArrowRight,
-  CheckCircle2, Shield, FileText, Zap,
+  CheckCircle2, Shield, FileText, Clock,
+  Sparkles, MessageSquare, Search, Brain,
 } from 'lucide-react'
 import { PolicyPrism } from '@/components/3d/HeroScene'
-import { MatrixPreview, SimulatorPreview, RadarPreview } from '@/components/showcase/ShowcasePreviews'
 import {
   fadeUp, fadeIn, stagger, staggerSlow,
-  sectionEntry, hoverLift, hoverButton, spring,
+  sectionEntry, hoverLift, hoverButton,
   EASE_STANDARD,
 } from '@/lib/motion/presets'
 
@@ -19,191 +19,99 @@ import {
 
 const PAIN_CARDS = [
   {
-    q: 'Which plans cover this drug?',
-    a: 'Compare payer coverage side by side — status, access burden, and effective date for each plan.',
+    q: 'Does this payer cover my drug?',
+    a: 'Type your question in plain English. PrismRx pulls the indexed payer policy, resolves the match, and returns a structured verdict with citations — in seconds.',
     tag: 'Coverage',
     accent: '#2B50FF',
     bg: '#ECF1FF',
+    icon: Search,
   },
   {
-    q: 'What criteria block approval?',
-    a: 'Step therapy, diagnosis gates, prior treatment requirements — all extracted from source policy text.',
-    tag: 'Case Review',
+    q: 'What criteria will block my PA?',
+    a: 'Step therapy requirements, diagnosis gates, prior treatment failures — extracted directly from source policy text. Not summaries. Not guesses.',
+    tag: 'Prior Auth',
     accent: '#C2410C',
     bg: '#FFF1EB',
+    icon: Brain,
   },
   {
-    q: 'What changed this quarter?',
-    a: 'Semantic diff between policy versions. Tightening, loosening, and new requirements shown with citations.',
-    tag: 'Changes',
+    q: 'Is there a lower-friction path?',
+    a: 'Ask which payer has the most lenient criteria for this drug. PrismRx scores access burden across indexed policies and surfaces the clearest approval path.',
+    tag: 'Access Path',
     accent: '#0F766E',
     bg: '#EAF8F4',
+    icon: MessageSquare,
   },
 ]
 
-const SHOWCASE_STEPS = [
+const HOW_IT_WORKS = [
   {
-    step: '01',
-    heading: 'Compare coverage across all payers',
-    body: 'A single view of every payer\'s stance on a drug family — coverage status, prior auth flag, access burden, and effective date.',
-    Preview: MatrixPreview,
+    n: '01',
+    title: 'Ask in plain English',
+    body: 'Type or speak any coverage question — payer, drug, diagnosis, prior therapies — in any format, any order.',
     accent: '#2B50FF',
-    href: '/matrix',
-    cta: 'Compare coverage',
   },
   {
-    step: '02',
-    heading: 'Surface blockers before the PA request',
-    body: 'Enter a patient case — drug, diagnosis, prior treatments, site of care — and instantly see what criteria are unmet and the clearest path to coverage.',
-    Preview: SimulatorPreview,
-    accent: '#C2410C',
-    href: '/simulate',
-    cta: 'Review a case',
+    n: '02',
+    title: 'Policy is searched and extracted',
+    body: 'PrismRx routes your query, searches indexed policy documents or the live web, and pulls structured criteria from source text.',
+    accent: '#7C3AED',
   },
   {
-    step: '03',
-    heading: 'Know what changed — and why it matters',
-    body: 'Quarter-over-quarter policy diffs with human-readable explanations. Every change linked back to its source page.',
-    Preview: RadarPreview,
+    n: '03',
+    title: 'Cited verdict — instantly',
+    body: 'Coverage decision, PA blockers, step therapy, and next steps — every field traceable to the exact policy page and section.',
     accent: '#0F766E',
-    href: '/radar',
-    cta: 'See policy changes',
   },
 ]
 
 const TRUST_ITEMS = [
-  { icon: Shield,       label: 'Public sources only',      body: 'Every policy pulled from publicly available payer portals. No proprietary data.' },
+  { icon: Shield, label: 'Public sources only', body: 'Every policy pulled from publicly available payer portals. No proprietary data, no guessing.' },
   { icon: CheckCircle2, label: 'Citations for every field', body: 'Each extracted criterion traces back to an exact page and section in the source document.' },
-  { icon: FileText,     label: 'Synthetic cases only',     body: 'No real patient data, no PHI, no insurance identifiers are stored or processed.' },
-  { icon: Zap,          label: 'End-to-end pipeline',      body: 'Ingestion → extraction → normalization → comparison → change detection in one system.' },
+  { icon: FileText, label: 'Synthetic cases only', body: 'No real patient data, no PHI, no insurance identifiers are stored or processed.' },
+  { icon: Clock, label: 'Seconds, not hours', body: 'What takes a PA coordinator 20 minutes takes PrismRx under five seconds. Same source. Better answer.' },
 ]
 
-const PREVIEW_ROWS = [
-  { payer: 'UnitedHealthcare', drug: 'Infliximab',   status: 'Conditional', friction: 78, sc: '#B45309', sb: '#FFF6E8' },
-  { payer: 'Cigna',            drug: 'Rituximab',    status: 'Covered',     friction: 31, sc: '#0F766E', sb: '#EAF8F4' },
-  { payer: 'Blue Shield CA',   drug: 'Vedolizumab',  status: 'Conditional', friction: 61, sc: '#B45309', sb: '#FFF6E8' },
-  { payer: 'Aetna',            drug: 'Infliximab',   status: 'Conditional', friction: 82, sc: '#C2410C', sb: '#FFF1EB' },
-  { payer: 'Cigna',            drug: 'Abatacept IV', status: 'Preferred',   friction: 25, sc: '#2B50FF', sb: '#ECF1FF' },
-]
+// ── Workspace preview (live React, no AI images) ──────────────────────────
 
-function frictionColor(n: number) {
-  if (n >= 70) return '#C2410C'
-  if (n >= 45) return '#B45309'
-  return '#0F766E'
-}
-
-// ── Showcase step component ────────────────────────────────────────────────
-
-function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
-  const imgY = useTransform(scrollYProgress, [0, 1], [-24, 24])
-  const isEven = i % 2 === 0
-
+function WorkspacePreview() {
+  const msgs = [
+    { role: 'user', text: 'Does UnitedHealthcare cover Rituximab for RA?' },
+    { role: 'ai', text: 'Per the indexed policy snapshot, UnitedHealthcare covers Rituximab for Rheumatoid Arthritis with prior authorization required. Step therapy failure of one conventional DMARD must be documented.' },
+  ]
   return (
-    <div
-      ref={ref}
-      className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center py-20"
-      style={{ borderTop: i > 0 ? '1px solid var(--line-soft)' : 'none' }}
-    >
-      {/* Text — alternating sides */}
-      <motion.div
-        className={isEven ? 'order-1 lg:order-1' : 'order-1 lg:order-2'}
-        {...sectionEntry}
-        variants={stagger}
-      >
-        <motion.div variants={fadeUp}>
-          <span
-            className="inline-block mb-4 text-mono-meta font-mono"
-            style={{ color: step.accent }}
-          >
-            {step.step}
-          </span>
-          <h3
-            className="text-h2 font-sans mb-5"
-            style={{ color: 'var(--ink-strong)', fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.1 }}
-          >
-            {step.heading}
-          </h3>
-          <p
-            className="text-body"
-            style={{ color: 'var(--ink-body)', lineHeight: 1.7, maxWidth: '48ch', marginBottom: '2rem' }}
-          >
-            {step.body}
-          </p>
-          <Link href={step.href}>
-            <motion.span
-              className="btn-primary inline-flex items-center gap-2 cursor-pointer"
-              style={{ background: step.accent }}
-              {...hoverButton}
-            >
-              {step.cta}
-              <ArrowRight className="w-4 h-4" />
-            </motion.span>
-          </Link>
-        </motion.div>
-      </motion.div>
-
-      {/* Image — parallax */}
-      <motion.div
-        className={`${isEven ? 'order-2 lg:order-2' : 'order-2 lg:order-1'} relative`}
-        style={{ y: imgY }}
-        initial={{ opacity: 0, y: 32 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: EASE_STANDARD, delay: 0.1 }}
-        viewport={{ once: true, amount: 0.2 }}
-      >
-        {/* Browser frame */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            border: '1px solid var(--line-mid)',
-            boxShadow: '0 32px 80px rgba(15,23,42,0.10)',
-          }}
-        >
-          {/* Browser chrome */}
-          <div
-            className="flex items-center gap-2 px-4 py-3"
-            style={{ background: 'var(--bg-soft)', borderBottom: '1px solid var(--line-soft)' }}
-          >
-            <div className="flex gap-1.5">
-              {['#FF5F5F','#FFBD2E','#28CA41'].map(c => (
-                <div key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />
-              ))}
-            </div>
-            <div
-              className="flex-1 mx-3 rounded-md px-3 py-1 text-xs font-mono"
-              style={{ background: 'var(--bg-surface)', color: 'var(--ink-muted)', border: '1px solid var(--line-soft)' }}
-            >
-              app.prismrx.io{step.href}
-            </div>
-          </div>
-          {/* Live React preview — no AI images */}
-          <div style={{ padding: '0.75rem', background: 'var(--bg-soft)' }}>
-            <step.Preview />
+    <div style={{ fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.5rem 0.75rem', background: 'linear-gradient(135deg, rgba(43,80,255,0.06) 0%, transparent 60%)', borderBottom: '1px solid var(--line-soft)' }}>
+        <div style={{ width: 20, height: 20, borderRadius: 7, background: 'linear-gradient(135deg,#2B50FF,#0F766E)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Sparkles style={{ width: 11, height: 11, color: '#fff' }} />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-strong)' }}>PrismRx Copilot</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 600, color: '#2B50FF', background: 'rgba(43,80,255,0.09)', padding: '2px 8px', borderRadius: 9999 }}>Indexed corpus</span>
+      </div>
+      {/* Messages */}
+      {msgs.map((m, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 0.5rem' }}>
+          <div style={{
+            maxWidth: '85%',
+            padding: '0.55rem 0.8rem',
+            borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+            background: m.role === 'user' ? 'linear-gradient(135deg,#3d62ff,#2B50FF)' : 'var(--bg-surface)',
+            border: m.role === 'ai' ? '1px solid var(--line-soft)' : 'none',
+            fontSize: 11.5, lineHeight: 1.55,
+            color: m.role === 'user' ? '#fff' : 'var(--ink-body)',
+            boxShadow: m.role === 'user' ? '0 6px 18px rgba(43,80,255,0.22)' : 'var(--shadow-xs)',
+          }}>
+            {m.text}
           </div>
         </div>
-
-        {/* Floating accent chip */}
-        <motion.div
-          className="absolute -bottom-4 -right-4"
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <span
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm"
-            style={{
-              color: step.accent,
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--line-mid)',
-              fontFamily: 'var(--font-ibm-plex-mono, monospace)',
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: step.accent }} />
-            Step {step.step}
-          </span>
-        </motion.div>
-      </motion.div>
+      ))}
+      {/* Widget stub */}
+      <div style={{ margin: '4px 8px 2px', padding: '0.6rem 0.85rem', background: 'var(--bg-soft)', borderRadius: 12, border: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0F766E', flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#0F766E' }}>Covered</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-muted)' }}>PA Required · Step therapy</span>
+      </div>
     </div>
   )
 }
@@ -240,11 +148,12 @@ export default function LandingPage() {
             variants={fadeUp}
             className="mb-6"
             style={{
-              fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
-              fontWeight: 600,
+              fontSize: 'clamp(2.75rem, 5.5vw, 5rem)',
+              fontWeight: 700,
               color: 'var(--ink-strong)',
-              letterSpacing: '-0.04em',
-              lineHeight: 1.05,
+              letterSpacing: '-0.045em',
+              lineHeight: 1.0,
+              marginBottom: '1.25rem',
             }}
           >
             Drug coverage,
@@ -253,7 +162,7 @@ export default function LandingPage() {
               className="font-serif-accent"
               style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
             >
-              finally readable.
+              ask anything.
             </span>
           </motion.h1>
 
@@ -261,28 +170,30 @@ export default function LandingPage() {
           <motion.p
             variants={fadeUp}
             className="text-body-l mb-10"
-            style={{ color: 'var(--ink-body)', lineHeight: 1.65, maxWidth: '44ch' }}
+            style={{ color: 'var(--ink-body)', lineHeight: 1.6, maxWidth: '38ch', fontSize: '1.125rem' }}
           >
-            PrismRx ingests public payer policies and turns them into structured, queryable coverage intelligence — with every claim cited back to the source.
+            Know before you prescribe. PrismRx surfaces payer requirements, PA blockers, and coverage verdicts — cited from source, in seconds.
           </motion.p>
 
           {/* CTAs */}
           <motion.div variants={fadeUp} className="flex flex-wrap gap-3 mb-14">
-            <Link href="/matrix">
+            <Link href="/workspace">
               <motion.span
                 className="btn-primary inline-flex items-center gap-2 cursor-pointer"
                 {...hoverButton}
+                style={{ padding: '0.875rem 1.75rem', fontSize: '1rem' }}
               >
-                Compare coverage
+                <Sparkles style={{ width: 16, height: 16 }} />
+                Open the workspace
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </Link>
-            <Link href="/radar">
+            <Link href="/matrix">
               <motion.span
                 className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
                 {...hoverButton}
               >
-                See policy changes
+                Coverage matrix
               </motion.span>
             </Link>
           </motion.div>
@@ -291,28 +202,14 @@ export default function LandingPage() {
           <motion.div variants={fadeIn} className="flex flex-wrap gap-6">
             {[
               { v: '5 payers', l: 'indexed' },
-              { v: '25+ policies', l: 'structured' },
-              { v: '39×',   l: 'weekly prior auths / physician*' },
+              { v: '< 5 sec', l: 'to cited answer' },
+              { v: '39×', l: 'weekly prior auths / physician*' },
             ].map(({ v, l }) => (
               <div key={l}>
-                <div
-                  style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    color: 'var(--ink-strong)',
-                    letterSpacing: '-0.025em',
-                  }}
-                >
+                <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.025em' }}>
                   {v}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--ink-muted)',
-                    marginTop: 2,
-                    fontFamily: 'var(--font-ibm-plex-mono, monospace)',
-                  }}
-                >
+                <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 2, fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}>
                   {l}
                 </div>
               </div>
@@ -335,18 +232,17 @@ export default function LandingPage() {
       <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div className="text-center mb-14" {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">What users actually need</motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
                 fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'var(--ink-strong)',
-                letterSpacing: '-0.03em',
+                letterSpacing: '-0.035em',
                 lineHeight: 1.1,
               }}
             >
-              Three questions. One workspace.
+              Three questions.<br />Instant answers.
             </motion.h2>
           </motion.div>
 
@@ -355,7 +251,7 @@ export default function LandingPage() {
             {...sectionEntry}
             variants={stagger}
           >
-            {PAIN_CARDS.map(({ q, a, tag, accent, bg }) => (
+            {PAIN_CARDS.map(({ q, a, tag, accent, bg, icon: Icon }) => (
               <motion.div
                 key={tag}
                 variants={fadeUp}
@@ -363,12 +259,15 @@ export default function LandingPage() {
                 className="card-policy p-8 flex flex-col gap-5"
                 style={{ paddingTop: '2.5rem' }}
               >
-                <span
-                  className="inline-block px-2.5 py-1 rounded-full text-label font-semibold"
-                  style={{ color: accent, background: bg }}
-                >
-                  {tag}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label font-semibold"
+                    style={{ color: accent, background: bg }}
+                  >
+                    <Icon style={{ width: 11, height: 11 }} />
+                    {tag}
+                  </span>
+                </div>
                 <h3
                   style={{
                     fontSize: '1.1875rem',
@@ -387,127 +286,141 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══ PRODUCT SHOWCASE (Apple-style scrollytelling) ═══════════════════ */}
+      {/* ══ WORKSPACE DEMO SECTION ═══════════════════════════════════════════ */}
       <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <motion.div className="text-center mb-6" {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">How it works</motion.p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            {/* Text */}
+            <motion.div {...sectionEntry} variants={stagger}>
+              <motion.h3 variants={fadeUp} style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', fontWeight: 700, color: 'var(--ink-strong)', letterSpacing: '-0.035em', lineHeight: 1.1, marginBottom: '1.25rem' }}>
+                Coverage intelligence,<br />built to be asked.
+              </motion.h3>
+              <motion.p variants={fadeUp} style={{ fontSize: 15, color: 'var(--ink-body)', lineHeight: 1.7, maxWidth: '44ch', marginBottom: '1.5rem' }}>
+                Ask a question. Get a structured answer with citations. The workspace retrieves the right policy, extracts PA criteria, and surfaces blockers — all without leaving the chat.
+              </motion.p>
+              <motion.ul variants={fadeUp} style={{ margin: '0 0 2rem', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  'Indexed corpus + live web policy retrieval',
+                  'PA blockers and step therapy — structured, not summarised',
+                  'Every answer cites the exact policy page',
+                  'Voice input — speak your question naturally',
+                  'Panel slides in only when there\'s something to show',
+                ].map(item => (
+                  <li key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--ink-body)' }}>
+                    <CheckCircle2 style={{ width: 15, height: 15, color: '#2B50FF', flexShrink: 0, marginTop: 2 }} />
+                    {item}
+                  </li>
+                ))}
+              </motion.ul>
+              <Link href="/workspace">
+                <motion.span
+                  className="btn-primary inline-flex items-center gap-2 cursor-pointer"
+                  style={{ background: '#2B50FF' }}
+                  {...hoverButton}
+                >
+                  <Sparkles style={{ width: 15, height: 15 }} />
+                  Try the workspace
+                  <ArrowRight className="w-4 h-4" />
+                </motion.span>
+              </Link>
+            </motion.div>
+
+            {/* Workspace preview */}
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, y: 32 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: EASE_STANDARD, delay: 0.1 }}
+              viewport={{ once: true, amount: 0.2 }}
+            >
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  border: '1px solid var(--line-mid)',
+                  boxShadow: '0 32px 80px rgba(15,23,42,0.10)',
+                }}
+              >
+                {/* Browser chrome */}
+                <div className="flex items-center gap-2 px-4 py-3" style={{ background: 'var(--bg-soft)', borderBottom: '1px solid var(--line-soft)' }}>
+                  <div className="flex gap-1.5">
+                    {['#FF5F5F', '#FFBD2E', '#28CA41'].map(c => (
+                      <div key={c} className="w-3 h-3 rounded-full" style={{ background: c }} />
+                    ))}
+                  </div>
+                  <div className="flex-1 mx-3 rounded-md px-3 py-1 text-xs font-mono" style={{ background: 'var(--bg-surface)', color: 'var(--ink-muted)', border: '1px solid var(--line-soft)' }}>
+                    app.prismrx.io/workspace
+                  </div>
+                </div>
+                <div style={{ padding: '0.75rem', background: 'var(--bg-soft)' }}>
+                  <WorkspacePreview />
+                </div>
+              </div>
+              {/* Floating chip */}
+              <motion.div
+                className="absolute -bottom-4 -right-4"
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm"
+                  style={{ color: '#2B50FF', background: 'var(--bg-surface)', border: '1px solid var(--line-mid)', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
+                >
+                  <Sparkles style={{ width: 10, height: 10 }} />
+                  Policy-direct · cited
+                </span>
+              </motion.div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ HOW IT WORKS ════════════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <motion.div className="text-center mb-14" {...sectionEntry} variants={stagger}>
             <motion.h2
               variants={fadeUp}
               style={{
                 fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'var(--ink-strong)',
-                letterSpacing: '-0.03em',
+                letterSpacing: '-0.035em',
                 lineHeight: 1.1,
-                marginBottom: '1rem',
               }}
             >
-              From scattered policy text
+              Question in.
               <br />
-              <span
-                className="font-serif-accent"
-                style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
-              >
-                to structured access intelligence.
+              <span className="font-serif-accent" style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}>
+                Cited verdict out.
               </span>
             </motion.h2>
           </motion.div>
 
-          {/* Scroll-animated product steps */}
-          {SHOWCASE_STEPS.map((step, i) => (
-            <ShowcaseStep key={step.step} step={step} i={i} />
-          ))}
-        </div>
-      </section>
-
-      {/* ══ MATRIX LIVE PREVIEW ══════════════════════════════════════════════ */}
-      <section style={{ background: 'var(--bg-page)', padding: '5rem 1.5rem' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div
-            className="flex items-end justify-between mb-6 flex-wrap gap-4"
-          >
-            <div>
-              <p className="overline mb-1">Live data</p>
-              <h2
-                style={{
-                  fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
-                  fontWeight: 600,
-                  color: 'var(--ink-strong)',
-                  letterSpacing: '-0.025em',
-                }}
-              >
-                Coverage at a glance
-              </h2>
-            </div>
-            <Link
-              href="/matrix"
-              className="inline-flex items-center gap-1 text-body-s font-medium"
-              style={{ color: 'var(--accent-blue)' }}
-            >
-              Full coverage view <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
           <motion.div
-            className="card overflow-hidden"
-            style={{ padding: 0, borderRadius: 20 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-5"
             {...sectionEntry}
-            variants={fadeUp}
+            variants={stagger}
           >
-            <table className="table-base w-full">
-              <thead>
-                <tr>
-                  {['Payer', 'Drug', 'Status', 'Friction'].map((h, i) => (
-                    <th key={h} style={{ textAlign: i === 3 ? 'right' : 'left' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {PREVIEW_ROWS.map((row, i) => (
-                  <tr
-                    key={i}
-                    className="cursor-pointer"
-                    onClick={() => (window.location.href = '/matrix')}
-                  >
-                    <td style={{ fontWeight: 500, color: 'var(--ink-strong)' }}>{row.payer}</td>
-                    <td style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)', fontSize: 13, color: 'var(--ink-muted)' }}>
-                      {row.drug}
-                    </td>
-                    <td>
-                      <span
-                        className="chip"
-                        style={{ color: row.sc, background: row.sb }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: row.sc }} />
-                        {row.status}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-ibm-plex-mono, monospace)',
-                          fontWeight: 500,
-                          fontSize: 14,
-                          color: frictionColor(row.friction),
-                        }}
-                      >
-                        {row.friction}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {HOW_IT_WORKS.map(({ n, title, body, accent }) => (
+              <motion.div
+                key={n}
+                variants={fadeUp}
+                {...hoverLift}
+                className="card p-7 flex flex-col gap-4"
+              >
+                <span style={{ fontSize: 13, fontWeight: 700, color: accent, fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}>{n}</span>
+                <h3 style={{ fontSize: '1.0625rem', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.01em', lineHeight: 1.3, margin: 0 }}>{title}</h3>
+                <p style={{ fontSize: 14, color: 'var(--ink-muted)', lineHeight: 1.65, margin: 0 }}>{body}</p>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>
 
-      {/* ══ TRUST ════════════════════════════════════════════════════════════ */}
+      {/* ══ TRUST / METHODOLOGY ══════════════════════════════════════════════ */}
       <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div className="text-center mb-14 mx-auto" style={{ maxWidth: '48ch' }} {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">Methodology</motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
@@ -528,16 +441,11 @@ export default function LandingPage() {
           >
             {TRUST_ITEMS.map(({ icon: Icon, label, body }) => (
               <motion.div key={label} variants={fadeUp} className="card p-6 flex flex-col gap-4">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'var(--accent-blue-soft)' }}
-                >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-blue-soft)' }}>
                   <Icon className="w-5 h-5" style={{ color: 'var(--accent-blue)' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)', marginBottom: 6, letterSpacing: '-0.01em' }}>
-                    {label}
-                  </p>
+                  <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)', marginBottom: 6, letterSpacing: '-0.01em' }}>{label}</p>
                   <p style={{ fontSize: 14, color: 'var(--ink-muted)', lineHeight: 1.65 }}>{body}</p>
                 </div>
               </motion.div>
@@ -560,39 +468,39 @@ export default function LandingPage() {
               fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
               fontStyle: 'italic',
               color: 'var(--ink-strong)',
-              letterSpacing: '-0.03em',
-              lineHeight: 1.15,
+              letterSpacing: '-0.035em',
+              lineHeight: 1.12,
               marginBottom: '1.5rem',
             }}
           >
-            Policies should be readable.<br />
-            Access should not depend on guesswork.
+            Know before you prescribe.
           </motion.p>
           <motion.p
             variants={fadeUp}
             className="text-body-l"
-            style={{ color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '44ch', margin: '0 auto 2.5rem' }}
+            style={{ color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '42ch', margin: '0 auto 2.5rem', fontSize: '1.0625rem', lineHeight: 1.65 }}
           >
-            Compare coverage. Inspect criteria. Trace evidence. Spot policy drift. All in one workspace.
+            PrismRx turns payer policy documents into instant, cited answers — so your team spends less time on the phone and more time with patients.
           </motion.p>
           <motion.div variants={fadeUp} className="flex flex-wrap justify-center gap-3">
-            <Link href="/matrix">
+            <Link href="/workspace">
               <motion.span
                 className="btn-primary inline-flex items-center gap-2 cursor-pointer"
                 style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
                 {...hoverButton}
               >
-                Compare coverage
+                <Sparkles style={{ width: 16, height: 16 }} />
+                Open the workspace
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </Link>
-            <Link href="/simulate">
+            <Link href="/matrix">
               <motion.span
                 className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
                 style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
                 {...hoverButton}
               >
-                Review a case
+                Coverage matrix
               </motion.span>
             </Link>
           </motion.div>
