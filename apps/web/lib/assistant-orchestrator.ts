@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto'
 import { policyRepository } from '@/lib/policy'
-import { callBedrock, isBedrockConfigured } from '@/lib/bedrock'
+import { callBedrock, streamBedrock, isBedrockConfigured } from '@/lib/bedrock'
 import type {
   AssistantRequest,
   AssistantResponse,
@@ -489,6 +489,195 @@ export async function orchestrate(req: AssistantRequest): Promise<AssistantRespo
 
   // Unknown / catch-all
   return buildGreetingResponse(requestId)
+}
+
+// ── Streaming plan — deterministic parts separated from text generation ───────
+
+export interface StreamPlan {
+  requestId: string
+  intent: AssistantIntent
+  /** Prompt to send to Bedrock for streaming. Null = use fallbackText directly. */
+  narrativePrompt: string | null
+  fallbackText: string
+  widget: Widget | null
+  sideWidgets: Widget[]
+  loaderStages: LoaderStage[]
+  meta: Omit<AssistantResponse['meta'], 'modelUsed'>
+}
+
+/**
+ * Builds everything deterministically without calling Bedrock.
+ * The caller is responsible for streaming the narrative text separately.
+ */
+export function orchestrateStream(req: AssistantRequest): StreamPlan {
+  const requestId = randomUUID()
+  const inputPayer = req.context?.payer ?? extractField(req.message, 'payer')
+  const inputDrug = req.context?.drug ?? extractField(req.message, 'drug')
+  const intent = detectIntent(req.message, { ...req.context, payer: inputPayer, drug: inputDrug })
+
+  // ── Greeting ──
+  if (intent === 'greeting') {
+    const payers = policyRepository.listSupportedPayers()
+    const drugs = policyRepository.listSupportedDrugs()
+    return {
+      requestId, intent,
+      narrativePrompt: null,
+      fallbackText: "Hi — happy to help you explore indexed medical-benefit drug policy coverage. I can check coverage criteria, blockers, and evidence for the payer/drug combinations in our current indexed dataset. What would you like to explore?",
+      widget: { type: 'welcome_quick_actions', props: { supportedPayerCount: payers.length, supportedDrugCount: drugs.length } },
+      sideWidgets: [],
+      loaderStages: [],
+      meta: { resolvedPayer: null, resolvedDrug: null, isIndexed: true, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+    }
+  }
+
+  // ── Missing fields ──
+  if (intent === 'missing_payer' || intent === 'missing_drug') {
+    const payers = policyRepository.listSupportedPayers()
+    const drugs = policyRepository.listSupportedDrugs()
+    const missingField = intent === 'missing_payer' ? 'payer' : 'drug'
+    return {
+      requestId, intent,
+      narrativePrompt: null,
+      fallbackText: intent === 'missing_payer'
+        ? "I can look up indexed coverage — which payer would you like to check?"
+        : "I can look up indexed coverage — which drug or biologic should I check?",
+      widget: { type: 'coverage_intake_form', props: { prefillPayer: req.context?.payer, prefillDrug: req.context?.drug, prefillDiagnosis: req.context?.diagnosis } },
+      sideWidgets: [{ type: 'supported_options_card', props: { requestedPayer: missingField === 'drug' ? req.context?.payer : undefined, requestedDrug: missingField === 'payer' ? req.context?.drug : undefined, supportedPayers: payers.map(p => ({ id: p.id, displayName: p.displayName })), supportedDrugs: drugs.map(d => ({ key: d.key, displayName: d.displayName })) } }],
+      loaderStages: [],
+      meta: { resolvedPayer: req.context?.payer ?? null, resolvedDrug: req.context?.drug ?? null, isIndexed: false, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+    }
+  }
+
+  // ── Explore / compare ──
+  if (intent === 'explore_drugs' || intent === 'compare_payers') {
+    const payers = policyRepository.listSupportedPayers()
+    const drugs = policyRepository.listSupportedDrugs()
+    return {
+      requestId, intent,
+      narrativePrompt: null,
+      fallbackText: intent === 'explore_drugs'
+        ? `The indexed dataset covers ${drugs.length} drug families. Here's what's available.`
+        : `The indexed dataset covers ${payers.length} payers. Select a combination to explore coverage criteria.`,
+      widget: { type: 'supported_options_card', props: { supportedPayers: payers.map(p => ({ id: p.id, displayName: p.displayName })), supportedDrugs: drugs.map(d => ({ key: d.key, displayName: d.displayName })) } },
+      sideWidgets: [{ type: 'limitation_notice', props: {} }],
+      loaderStages: [],
+      meta: { resolvedPayer: null, resolvedDrug: null, isIndexed: true, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+    }
+  }
+
+  // ── Coverage lookup ──
+  if (intent === 'coverage_lookup') {
+    const resolvedPayer = inputPayer ? policyRepository.resolvePayer(inputPayer) : null
+    const resolvedDrug = inputDrug ? policyRepository.resolveDrug(inputDrug) : null
+
+    if (!resolvedPayer || !resolvedDrug) {
+      const payers = policyRepository.listSupportedPayers()
+      const drugs = policyRepository.listSupportedDrugs()
+      const what = !resolvedPayer
+        ? `"${inputPayer ?? 'that payer'}" is not in the indexed payer dataset`
+        : `"${inputDrug ?? 'that drug'}" is not in the indexed drug dataset`
+      return {
+        requestId, intent: 'unsupported',
+        narrativePrompt: null,
+        fallbackText: `${what}. The indexed dataset covers ${payers.length} payers and ${drugs.length} drug families. Here's what's available.`,
+        widget: { type: 'supported_options_card', props: { requestedPayer: inputPayer, requestedDrug: inputDrug, supportedPayers: payers.map(p => ({ id: p.id, displayName: p.displayName })), supportedDrugs: drugs.map(d => ({ key: d.key, displayName: d.displayName })) } },
+        sideWidgets: [{ type: 'limitation_notice', props: {} }],
+        loaderStages: buildGracefulLoaderStages(),
+        meta: { resolvedPayer: resolvedPayer?.id ?? null, resolvedDrug: resolvedDrug?.key ?? null, isIndexed: false, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+      }
+    }
+
+    const details = policyRepository.getPolicyDetails(resolvedPayer.id, resolvedDrug.key)
+    if (!details) {
+      const payers = policyRepository.listSupportedPayers()
+      const drugs = policyRepository.listSupportedDrugs()
+      return {
+        requestId, intent: 'unsupported',
+        narrativePrompt: null,
+        fallbackText: `The combination of ${resolvedPayer.displayName} + ${resolvedDrug.displayName} is not currently indexed.`,
+        widget: { type: 'supported_options_card', props: { requestedPayer: resolvedPayer.displayName, requestedDrug: resolvedDrug.displayName, supportedPayers: payers.map(p => ({ id: p.id, displayName: p.displayName })), supportedDrugs: drugs.map(d => ({ key: d.key, displayName: d.displayName })) } },
+        sideWidgets: [{ type: 'limitation_notice', props: {} }],
+        loaderStages: buildGracefulLoaderStages(),
+        meta: { resolvedPayer: resolvedPayer.id, resolvedDrug: resolvedDrug.key, isIndexed: false, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+      }
+    }
+
+    const related = policyRepository.getRelatedCombinations(resolvedPayer.id, resolvedDrug.key)
+    const blockers = buildBlockers(details)
+    const status = statusLabel(details.record.coverageStatus)
+    const payerDisplay = resolvedPayer.displayName
+    const drugDisplay = resolvedDrug.displayName
+
+    const narrativePrompt = `Summarize this indexed policy coverage record in 2-3 sentences for a healthcare professional.
+Payer: ${payerDisplay}
+Drug: ${drugDisplay}
+Status: ${status}
+PA Required: ${details.record.paRequired ? 'Yes' : 'No'}
+Step Therapy: ${details.record.stepTherapyRequired ? 'Yes — ' + details.priorFailureRequirements.join(', ') : 'No'}
+Site of Care: ${details.siteOfCare ?? 'Not specified'}
+Effective Date: ${details.record.effectiveDate}
+Next best action: ${details.nextBestAction}
+Use language like "per the indexed policy snapshot" and be factual and concise.`
+
+    const fallbackText = `Per the indexed policy snapshot, ${payerDisplay} covers ${drugDisplay} with ${details.record.paRequired ? 'prior authorization required' : 'no prior authorization required'}. ${details.record.stepTherapyRequired ? `Step therapy is required — failure of ${details.priorFailureRequirements.slice(0, 2).join(', ')} must be documented.` : ''} The best available indexed policy version is effective ${details.record.effectiveDate}.`
+
+    const primaryWidget: Widget = {
+      type: 'coverage_report_hero',
+      props: {
+        payer: payerDisplay, drug: drugDisplay,
+        coverageStatus: details.record.coverageStatus,
+        paRequired: details.record.paRequired,
+        stepTherapyRequired: details.record.stepTherapyRequired,
+        effectiveDate: details.record.effectiveDate,
+        versionLabel: details.record.versionLabel,
+        shortTakeaway: fallbackText, // will be replaced by streamed text on client
+        frictionScore: details.frictionScore,
+      },
+    }
+
+    const sideWidgets: Widget[] = [
+      { type: 'blockers_and_requirements', props: { blockers, nextBestAction: details.nextBestAction } },
+      { type: 'evidence_drawer', props: { evidence: details.evidence, policyTitle: `${payerDisplay} — ${drugDisplay} (${details.record.versionLabel})` } },
+      { type: 'policy_snapshot_card', props: { payer: payerDisplay, drugFamily: drugDisplay, effectiveDate: details.record.effectiveDate, versionLabel: details.record.versionLabel, policyId: details.record.policyId, confidence: 'high', completenessNote: 'Based on indexed policy snapshot. Does not guarantee reimbursement or PA outcome.' } },
+      { type: 'related_actions', props: { payerId: resolvedPayer.id, drugKey: resolvedDrug.key, relatedCombinations: related } },
+      { type: 'limitation_notice', props: {} },
+    ]
+
+    if (details.siteOfCare) sideWidgets.splice(1, 0, { type: 'site_of_care', props: { siteOfCare: details.siteOfCare } })
+
+    const biosimilars = details.record.raw.biosimilars ?? []
+    const referenceProduct = details.record.raw.reference_product ?? null
+    if (biosimilars.length > 0 || referenceProduct) {
+      const biosimilarNote = details.record.raw.clinical_criteria?.additional_notes?.find(n => /biosimilar|non-preferred|preferred/i.test(n)) ?? null
+      sideWidgets.splice(2, 0, { type: 'preferred_alternative', props: { preferredProduct: biosimilars[0] ?? null, nonPreferredProduct: biosimilars.length > 0 ? referenceProduct : null, biosimilars, note: biosimilarNote } })
+    }
+
+    const sameDrugRelated = related.filter(r => r.drug.key === resolvedDrug.key)
+    if (sameDrugRelated.length > 0) sideWidgets.splice(-2, 0, { type: 'mini_comparison', props: { drugDisplay, combinations: sameDrugRelated } })
+
+    return {
+      requestId, intent: 'coverage_lookup',
+      narrativePrompt,
+      fallbackText,
+      widget: primaryWidget,
+      sideWidgets,
+      loaderStages: buildIndexedLoaderStages(payerDisplay, drugDisplay),
+      meta: { resolvedPayer: payerDisplay, resolvedDrug: drugDisplay, isIndexed: true, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+    }
+  }
+
+  // ── Fallback ──
+  const payers = policyRepository.listSupportedPayers()
+  const drugs = policyRepository.listSupportedDrugs()
+  return {
+    requestId, intent: 'greeting',
+    narrativePrompt: null,
+    fallbackText: "Hi — happy to help you explore indexed medical-benefit drug policy coverage. What would you like to explore?",
+    widget: { type: 'welcome_quick_actions', props: { supportedPayerCount: payers.length, supportedDrugCount: drugs.length } },
+    sideWidgets: [],
+    loaderStages: [],
+    meta: { resolvedPayer: null, resolvedDrug: null, isIndexed: true, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+  }
 }
 
 // ── Simple field extractor ────────────────────────────────────────────────────
