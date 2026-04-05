@@ -107,14 +107,15 @@ async function streamAssistant(
 interface AssistantDrawerProps {
   open: boolean
   onClose: () => void
-  initialPayers: { id: string; displayName: string }[]
-  initialDrugs:  { key: string; displayName: string }[]
-  payerDrugMap:  Record<string, string[]>
+  initialPayers:   { id: string; displayName: string }[]
+  initialDrugs:    { key: string; displayName: string }[]
+  payerDrugMap:    Record<string, string[]>
+  prefillMessage?: string
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AssistantDrawer({ open, onClose, initialPayers, initialDrugs, payerDrugMap }: AssistantDrawerProps) {
+export function AssistantDrawer({ open, onClose, initialPayers, initialDrugs, payerDrugMap, prefillMessage }: AssistantDrawerProps) {
   const [conversation, setConversation] = useState<ConversationEntry[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -127,9 +128,15 @@ export function AssistantDrawer({ open, onClose, initialPayers, initialDrugs, pa
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [conversation])
 
-  // Focus input when drawer opens
+  // Focus input when drawer opens; auto-send prefill if provided
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 300)
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 300)
+      if (prefillMessage) {
+        sendMessage(prefillMessage)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const getContext = useCallback(() => {

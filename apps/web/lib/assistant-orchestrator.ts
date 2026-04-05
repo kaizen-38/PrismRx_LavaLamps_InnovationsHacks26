@@ -349,6 +349,30 @@ function nextBestAction(policy: PolicyLookupFound): string {
   return 'Submit prior authorization with clinical documentation per policy criteria.'
 }
 
+// ── Helpers for orchestrateStream (policyRepository path) ────────────────────
+
+function buildBlockersFromDetails(details: import('@/lib/policy/repository').PolicyDetails): BlockerItem[] {
+  const blockers: BlockerItem[] = []
+  if (details.record.paRequired) {
+    blockers.push({ label: 'Prior Authorization Required', value: 'A prior authorization must be submitted before dispensing.', type: 'prior_auth', severity: 'hard' })
+  }
+  if (details.record.stepTherapyRequired && details.priorFailureRequirements.length > 0) {
+    blockers.push({ label: 'Step Therapy', value: details.priorFailureRequirements.slice(0, 2).join(' | '), type: 'step_therapy', severity: 'hard' })
+  }
+  if (details.siteOfCare) {
+    blockers.push({ label: 'Site of Care Restriction', value: details.siteOfCare, type: 'site_of_care', severity: 'soft' })
+  }
+  return blockers
+}
+
+function coverageStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    covered: 'Covered', preferred: 'Preferred', conditional: 'Conditional',
+    nonpreferred: 'Non-Preferred', not_covered: 'Not Covered', unknown: 'Unknown',
+  }
+  return map[status] ?? status
+}
+
 // ── Response builders ─────────────────────────────────────────────────────────
 
 async function buildGreetingResponse(requestId: string): Promise<AssistantResponse> {
@@ -653,9 +677,9 @@ export interface StreamPlan {
  */
 export function orchestrateStream(req: AssistantRequest): StreamPlan {
   const requestId = randomUUID()
-  const inputPayer = req.context?.payer ?? extractField(req.message, 'payer')
-  const inputDrug = req.context?.drug ?? extractField(req.message, 'drug')
-  const intent = detectIntent(req.message, { ...req.context, payer: inputPayer, drug: inputDrug })
+  const inputPayer = req.context?.payer ?? extractPayer(req.message)
+  const inputDrug = req.context?.drug ?? extractDrug(req.message)
+  const intent = detectIntent(req.message, inputPayer, inputDrug)
 
   // ── Greeting ──
   if (intent === 'greeting') {
@@ -745,8 +769,8 @@ export function orchestrateStream(req: AssistantRequest): StreamPlan {
     }
 
     const related = policyRepository.getRelatedCombinations(resolvedPayer.id, resolvedDrug.key)
-    const blockers = buildBlockers(details)
-    const status = statusLabel(details.record.coverageStatus)
+    const blockers = buildBlockersFromDetails(details)
+    const status = coverageStatusLabel(details.record.coverageStatus)
     const payerDisplay = resolvedPayer.displayName
     const drugDisplay = resolvedDrug.displayName
 
@@ -820,42 +844,4 @@ Use language like "per the indexed policy snapshot" and be factual and concise.`
     loaderStages: [],
     meta: { resolvedPayer: null, resolvedDrug: null, isIndexed: true, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
   }
-}
-
-// ── Simple field extractor ────────────────────────────────────────────────────
-// Extracts payer or drug names from free-text messages.
-
-const PAYER_PATTERNS = [
-  /\baetna\b/i, /\buhc\b/i, /\bunited\b/i, /\bcigna\b/i,
-  /\banthem\b/i, /\bblue shield\b/i, /\bbsca\b/i,
-]
-const DRUG_PATTERNS = [
-  /\binfliximab\b/i, /\bremicade\b/i, /\binflectra\b/i, /\bavsola\b/i, /\brenflexis\b/i,
-  /\brituximab\b/i, /\brituxan\b/i, /\btruxima\b/i,
-  /\bvedolizumab\b/i, /\bentyvio\b/i,
-  /\btocilizumab\b/i, /\bactemra\b/i,
-  /\bocrelizumab\b/i, /\bocrevus\b/i,
-]
-
-function extractField(message: string, field: 'payer' | 'drug'): string | undefined {
-  const patterns = field === 'payer' ? PAYER_PATTERNS : DRUG_PATTERNS
-  for (const pattern of patterns) {
-    const match = message.match(pattern)
-    if (match) return match[0]
-  }
-
-  // 5. Not found — show fallback
-  if (!lookupResult.found) {
-    return buildFallbackResponse(
-      requestId,
-      lookupResult.requested_payer,
-      lookupResult.requested_drug,
-      lookupResult.available_payers,
-      lookupResult.available_drugs,
-      lookupResult.message,
-    )
-  }
-
-  // 6. Fetch document + analyze with Claude
-  return buildCoverageResponse(requestId, lookupResult, payer, drug, req.message)
 }

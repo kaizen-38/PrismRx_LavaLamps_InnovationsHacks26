@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter, Newsreader, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
-import { FloatingNav } from '@/components/layout/FloatingNav'
+import { SiteChrome } from '@/components/layout/SiteChrome'
+import { policyRepository } from '@/lib/policy'
 
 // ── Fonts ──────────────────────────────────────────────────────────────────
 const inter = Inter({
@@ -38,6 +39,10 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const payers      = policyRepository.listSupportedPayers().map(p => ({ id: p.id, displayName: p.displayName }))
+  const drugs       = policyRepository.listSupportedDrugs().map(d => ({ key: d.key, displayName: d.displayName }))
+  const payerDrugMap = policyRepository.getPayerDrugMap()
+
   return (
     <html
       lang="en"
@@ -53,8 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           lineHeight: 1.6,
         }}
       >
-        <FloatingNav />
-        <main>{children}</main>
+        <SiteChrome initialPayers={payers} initialDrugs={drugs} payerDrugMap={payerDrugMap}>{children}</SiteChrome>
 
         <footer
           style={{

@@ -267,12 +267,12 @@ export default function CaseReviewPage() {
 
   return (
     <div
-      className="mx-auto max-w-screen-xl px-4 sm:px-8 pt-28 pb-20"
+      className="mx-auto max-w-screen-xl px-4 sm:px-8 pt-16 pb-20"
       style={{ minHeight: '100vh', background: 'var(--bg-canvas)' }}
     >
       {/* Page header */}
       <motion.div variants={stagger} initial="hidden" animate="show" className="mb-10">
-        <motion.p variants={fadeUp} className="overline mb-1">Access Review</motion.p>
+        <motion.p variants={fadeUp} className="overline mb-1">PA Simulator</motion.p>
         <motion.h1
           variants={fadeUp}
           style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.03em', marginBottom: '0.5rem' }}

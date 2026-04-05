@@ -50,7 +50,7 @@ export default function MatrixPage() {
     : 0
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-28 pb-20">
+    <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-16 pb-20">
 
       {/* ── Page header ── */}
       <motion.div

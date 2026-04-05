@@ -20,27 +20,30 @@ import {
 const PAIN_CARDS = [
   {
     q: 'Does this payer cover my drug?',
-    a: 'Type your question in plain English. PrismRx pulls the indexed payer policy, resolves the match, and returns a structured verdict with citations — in seconds.',
-    tag: 'Coverage',
+    a: 'Ask in plain English. PrismRx pulls the indexed policy, resolves the match, and returns a structured verdict with citations — in seconds.',
+    tag: 'Coverage lookup',
     accent: '#2B50FF',
     bg: '#ECF1FF',
     icon: Search,
+    href: '/workspace',
   },
   {
     q: 'What criteria will block my PA?',
-    a: 'Step therapy requirements, diagnosis gates, prior treatment failures — extracted directly from source policy text. Not summaries. Not guesses.',
-    tag: 'Prior Auth',
+    a: 'Step therapy, diagnosis gates, prior treatment failures — extracted directly from source policy text. Not summaries. Not guesses.',
+    tag: 'PA blockers',
     accent: '#C2410C',
     bg: '#FFF1EB',
     icon: Brain,
+    href: '/simulate',
   },
   {
-    q: 'Is there a lower-friction path?',
-    a: 'Ask which payer has the most lenient criteria for this drug. PrismRx scores access burden across indexed policies and surfaces the clearest approval path.',
-    tag: 'Access Path',
+    q: 'Which payer has the clearest path?',
+    a: 'PrismRx scores access burden across indexed payers and surfaces the combination with the lowest friction for your drug and indication.',
+    tag: 'Access path',
     accent: '#0F766E',
     bg: '#EAF8F4',
     icon: MessageSquare,
+    href: '/matrix',
   },
 ]
 
@@ -156,13 +159,13 @@ export default function LandingPage() {
               marginBottom: '1.25rem',
             }}
           >
-            Drug coverage,
+            Payer policy intelligence
             <br />
             <span
               className="font-serif-accent"
               style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
             >
-              ask anything.
+              for market access.
             </span>
           </motion.h1>
 
@@ -172,11 +175,11 @@ export default function LandingPage() {
             className="text-body-l mb-10"
             style={{ color: 'var(--ink-body)', lineHeight: 1.6, maxWidth: '38ch', fontSize: '1.125rem' }}
           >
-            Know before you prescribe. PrismRx surfaces payer requirements, PA blockers, and coverage verdicts — cited from source, in seconds.
+            Ask any coverage question in plain English. PrismRx extracts PA criteria, step therapy requirements, and blockers directly from indexed payer policies — with citations.
           </motion.p>
 
           {/* CTAs */}
-          <motion.div variants={fadeUp} className="flex flex-wrap gap-3 mb-14">
+          <motion.div variants={fadeUp} className="flex flex-wrap gap-3 mb-6">
             <Link href="/workspace">
               <motion.span
                 className="btn-primary inline-flex items-center gap-2 cursor-pointer"
@@ -184,7 +187,7 @@ export default function LandingPage() {
                 style={{ padding: '0.875rem 1.75rem', fontSize: '1rem' }}
               >
                 <Sparkles style={{ width: 16, height: 16 }} />
-                Open the workspace
+                Open workspace
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </Link>
@@ -198,18 +201,37 @@ export default function LandingPage() {
             </Link>
           </motion.div>
 
+          {/* Sample prompts */}
+          <motion.div variants={fadeUp} className="flex flex-wrap gap-2 mb-10">
+            {[
+              'Does Cigna cover infliximab for RA?',
+              'Compare payer step therapy for rituximab',
+              'What changed this quarter?',
+            ].map(p => (
+              <Link key={p} href={`/workspace`}>
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs cursor-pointer transition-colors"
+                  style={{ background: 'var(--bg-soft)', color: 'var(--ink-muted)', border: '1px solid var(--line-soft)', fontSize: 12 }}
+                >
+                  {p} →
+                </span>
+              </Link>
+            ))}
+          </motion.div>
+
           {/* Stat strip */}
           <motion.div variants={fadeIn} className="flex flex-wrap gap-6">
             {[
-              { v: '5 payers', l: 'indexed' },
-              { v: '< 5 sec', l: 'to cited answer' },
-              { v: '39×', l: 'weekly prior auths / physician*' },
+              { v: '5',    l: 'payers indexed' },
+              { v: '12',   l: 'drug families' },
+              { v: '60+',  l: 'policy pairs' },
+              { v: '< 5s', l: 'to cited answer' },
             ].map(({ v, l }) => (
               <div key={l}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.025em' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--ink-strong)', letterSpacing: '-0.03em', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}>
                   {v}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 2, fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 2 }}>
                   {l}
                 </div>
               </div>
@@ -251,36 +273,36 @@ export default function LandingPage() {
             {...sectionEntry}
             variants={stagger}
           >
-            {PAIN_CARDS.map(({ q, a, tag, accent, bg, icon: Icon }) => (
-              <motion.div
-                key={tag}
-                variants={fadeUp}
-                {...hoverLift}
-                className="card-policy p-8 flex flex-col gap-5"
-                style={{ borderLeft: `3px solid ${accent}` }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {PAIN_CARDS.map(({ q, a, tag, accent, bg, icon: Icon, href }) => (
+              <Link key={tag} href={href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <motion.div
+                  variants={fadeUp}
+                  {...hoverLift}
+                  className="card p-7 flex flex-col gap-4 h-full"
+                  style={{ cursor: 'pointer' }}
+                >
                   <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label font-semibold"
-                    style={{ color: accent, background: bg }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label font-semibold w-fit"
+                    style={{ color: accent, background: bg, fontSize: 11 }}
                   >
-                    <Icon style={{ width: 11, height: 11 }} />
+                    <Icon style={{ width: 10, height: 10 }} />
                     {tag}
                   </span>
-                </div>
-                <h3
-                  style={{
-                    fontSize: '1.1875rem',
-                    fontWeight: 600,
-                    color: 'var(--ink-strong)',
-                    letterSpacing: '-0.015em',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {q}
-                </h3>
-                <p style={{ fontSize: 15, color: 'var(--ink-body)', lineHeight: 1.65 }}>{a}</p>
-              </motion.div>
+                  <h3
+                    style={{
+                      fontSize: '1.0625rem',
+                      fontWeight: 600,
+                      color: 'var(--ink-strong)',
+                      letterSpacing: '-0.015em',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {q}
+                  </h3>
+                  <p style={{ fontSize: 14, color: 'var(--ink-body)', lineHeight: 1.65, flex: 1 }}>{a}</p>
+                  <span style={{ fontSize: 12, color: accent, fontWeight: 500 }}>Try it →</span>
+                </motion.div>
+              </Link>
             ))}
           </motion.div>
         </div>
@@ -504,12 +526,6 @@ export default function LandingPage() {
               </motion.span>
             </Link>
           </motion.div>
-          <motion.p
-            variants={fadeIn}
-            style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: '3rem', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
-          >
-            * AMA 2025 Prior Authorization report
-          </motion.p>
         </motion.div>
       </section>
 
