@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Send, RotateCcw, AlertCircle, Sparkles, Grid3x3, Radio } from 'lucide-react'
+import { Send, RotateCcw, AlertCircle, Sparkles, Grid3x3, Radio, Mic, MicOff } from 'lucide-react'
 import type { AssistantResponse } from '@/lib/assistant-types'
 import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
@@ -221,6 +221,35 @@ export function WorkspaceClient({
       handleSend(input)
     }
   }
+
+  // ── Voice input (Web Speech API) ──────────────────────────────────────────
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  const toggleVoice = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+    const SpeechRecognition =
+      (window as typeof window & { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition ??
+      (window as typeof window & { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition
+    if (!SpeechRecognition) return
+    const rec = new SpeechRecognition()
+    rec.lang = 'en-US'
+    rec.continuous = false
+    rec.interimResults = false
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0]?.[0]?.transcript ?? ''
+      if (transcript) setInput(prev => (prev ? prev + ' ' + transcript : transcript))
+    }
+    rec.onend = () => setIsListening(false)
+    rec.onerror = () => setIsListening(false)
+    recognitionRef.current = rec
+    rec.start()
+    setIsListening(true)
+  }, [isListening])
 
   const latestLoaderStages = conversation.findLast(e => e.response?.loaderStages.length)?.response?.loaderStages ?? []
   const displayResponse = activeResponse
@@ -442,7 +471,7 @@ export function WorkspaceClient({
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about PA, step therapy, or coverage…"
+              placeholder={isListening ? 'Listening…' : 'Ask about PA, step therapy, or coverage…'}
               rows={1}
               disabled={isSubmitting}
               style={{
@@ -459,6 +488,34 @@ export function WorkspaceClient({
                 overflow: 'auto',
               }}
             />
+            {/* Mic button */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleVoice}
+              title={isListening ? 'Stop listening' : 'Speak your question'}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                border: 'none',
+                flexShrink: 0,
+                background: isListening ? 'rgba(194,65,12,0.12)' : 'var(--bg-surface)',
+                color: isListening ? '#C2410C' : 'var(--ink-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: isListening ? '1.5px solid rgba(194,65,12,0.35)' : '1px solid var(--line-soft)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {isListening
+                ? <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 0.8 }}><MicOff style={{ width: 14, height: 14 }} /></motion.span>
+                : <Mic style={{ width: 14, height: 14 }} />
+              }
+            </motion.button>
+            {/* Send button */}
             <motion.button
               type="button"
               whileTap={{ scale: 0.94 }}
