@@ -30,7 +30,7 @@ async function sendMessage(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, context }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(120_000),
   })
 
   if (!res.ok) {
@@ -190,7 +190,7 @@ export function WorkspaceClient({
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.01em' }}>Policy Workspace</p>
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--ink-muted)' }}>Indexed policy snapshot · {initialPayers.length} payers · {initialDrugs.length} drugs</p>
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--ink-muted)' }}>Indexed data + live web policy search · {initialPayers.length} payers · {initialDrugs.length} drugs in index</p>
           </div>
           <button
             onClick={() => { setConversation([]); setActiveResponse(null); setShowLoader(false); setTimeout(() => handleSend('hi', undefined, true), 100) }}
@@ -253,7 +253,7 @@ export function WorkspaceClient({
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about indexed coverage, payers, or drugs…"
+              placeholder="Ask about coverage (e.g. Does Aetna cover vedolizumab?)…"
               rows={1}
               disabled={isSubmitting}
               style={{
@@ -278,7 +278,7 @@ export function WorkspaceClient({
             </motion.button>
           </div>
           <p style={{ margin: '0.5rem 0 0', fontSize: 10, color: 'var(--ink-faint)', textAlign: 'center' }}>
-            Based on indexed policy snapshots · not live payer data
+            Footer reflects each reply: indexed snapshot vs live-fetched document (see chip under the last answer)
           </p>
         </div>
       </div>

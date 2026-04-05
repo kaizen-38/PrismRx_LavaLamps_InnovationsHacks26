@@ -10,6 +10,21 @@ vi.mock('../lib/bedrock', () => ({
   isBedrockConfigured: vi.fn().mockReturnValue(false),
 }))
 
+// Live crawl hits the real API with a long timeout — stub so tests stay fast.
+vi.mock('../lib/policy/db-repository', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../lib/policy/db-repository')>()
+  return {
+    ...mod,
+    getLivePolicyText: vi.fn().mockResolvedValue({
+      found: false,
+      url: null,
+      text: null,
+      charCount: 0,
+      source: null,
+    }),
+  }
+})
+
 import { orchestrate } from '../lib/assistant-orchestrator'
 
 describe('orchestrate — greeting', () => {
