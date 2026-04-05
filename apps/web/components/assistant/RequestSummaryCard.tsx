@@ -23,7 +23,9 @@ export function RequestSummaryCard({ resolvedPayer, resolvedDrug, diagnosis, mat
         )}
         <span style={{ fontSize: 11, fontWeight: 600, color: confidenceColor }}>{confidenceLabel}</span>
         <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>·</span>
-        <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}>Indexed policy snapshot</span>
+        <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}>
+          {matchConfidence === 'approximate' ? 'Live / web-assisted lookup' : 'Indexed policy snapshot'}
+        </span>
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

@@ -15,6 +15,7 @@ import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
 import { RequestSummaryCard } from '@/components/assistant/RequestSummaryCard'
 import { WidgetReveal } from '@/components/assistant/WidgetReveal'
 import { WelcomeQuickActions } from '@/components/assistant/WelcomeQuickActions'
+import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -370,9 +371,9 @@ export function AssistantDrawer({ open, onClose, initialPayers, initialDrugs, pa
                       )}
 
                       {entry.text && (
-                        <p className="text-sm leading-7 whitespace-pre-wrap" style={{ color: 'var(--ink-body)' }}>
-                          {entry.text}
-                        </p>
+                        <div className="text-sm leading-7" style={{ color: 'var(--ink-body)' }}>
+                          <AssistantMarkdown>{entry.text}</AssistantMarkdown>
+                        </div>
                       )}
                     </div>
                   )}

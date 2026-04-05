@@ -154,8 +154,20 @@ export async function fetchCoverageMatrix(
   if (!USE_MOCK) {
     const query = drugKey ? `?drug=${encodeURIComponent(drugKey)}` : ''
     const result = await apiFetch<CoverageMatrixData>(`/api/matrix${query}`)
-    if (result.ok) return result.data
-    console.warn('[api-client] matrix fetch failed, using mock:', result.error)
+    if (result.ok) {
+      const data = result.data
+      const hasData =
+        Array.isArray(data.rows) &&
+        data.rows.length > 0 &&
+        Array.isArray(data.payer_ids) &&
+        data.payer_ids.length > 0
+      if (hasData) return data
+      console.warn(
+        '[api-client] matrix API returned no rows (database likely empty or not seeded). Using bundled mock matrix. Workspace uses separate in-app policy data.',
+      )
+    } else {
+      console.warn('[api-client] matrix fetch failed, using mock:', result.error)
+    }
   }
   const matrix = buildMockMatrix()
   if (drugKey) {

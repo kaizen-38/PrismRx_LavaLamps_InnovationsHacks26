@@ -22,6 +22,7 @@ export type WidgetType =
   | 'site_of_care'
   | 'preferred_alternative'
   | 'mini_comparison'
+  | 'payer_drug_matrix'
 
 // ── Individual widget prop shapes ─────────────────────────────────────────────
 
@@ -54,6 +55,12 @@ export interface CoverageReportHeroProps {
   versionLabel: string
   shortTakeaway: string   // 1–2 sentence model summary
   frictionScore: number
+  /** Indexed snapshot (default) vs live web/PDF excerpt summary card */
+  reportSource?: 'indexed' | 'live_web'
+  liveSourceUrl?: string | null
+  liveExcerptFormat?: 'pdf' | 'html' | null
+  /** Character count of retrieved excerpt (live only) */
+  liveCharCount?: number
 }
 
 export interface BlockerItem {
@@ -116,6 +123,31 @@ export interface MiniComparisonProps {
   combinations: RelatedCombination[]
 }
 
+/** One row in the workspace payer × drug comparison matrix (same drug, all indexed payers). */
+export interface PayerDrugMatrixRow {
+  payerId: string
+  payerDisplay: string
+  coverageStatus: CoverageStatus
+  paRequired: boolean
+  stepTherapyRequired: boolean
+  frictionScore: number
+  effectiveDate: string
+  versionLabel: string
+  policyId: string
+  nextBestActionShort: string
+  evidence: PolicyEvidence[]
+  /** Live web/PDF excerpt row vs structured indexed snapshot */
+  rowSource?: 'indexed' | 'live_web'
+}
+
+export interface PayerDrugMatrixProps {
+  drugDisplay: string
+  drugKey: string
+  rows: PayerDrugMatrixRow[]
+  /** Whole matrix built from live fetch (not manual index) */
+  matrixSource?: 'indexed' | 'live_web'
+}
+
 // ── Discriminated union of all widgets ───────────────────────────────────────
 
 export type Widget =
@@ -132,6 +164,7 @@ export type Widget =
   | { type: 'site_of_care'; props: SiteOfCareProps }
   | { type: 'preferred_alternative'; props: PreferredAlternativeProps }
   | { type: 'mini_comparison'; props: MiniComparisonProps }
+  | { type: 'payer_drug_matrix'; props: PayerDrugMatrixProps }
 
 // ── Loader stage ──────────────────────────────────────────────────────────────
 
@@ -149,6 +182,8 @@ export type AssistantIntent =
   | 'missing_payer'
   | 'missing_drug'
   | 'compare_payers'
+  /** Same drug compared across all indexed payers — matrix + narrative */
+  | 'payer_matrix_compare'
   | 'explore_drugs'
   | 'view_evidence'
   | 'follow_up'

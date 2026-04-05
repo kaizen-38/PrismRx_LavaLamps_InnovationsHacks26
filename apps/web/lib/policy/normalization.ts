@@ -39,6 +39,7 @@ export const DRUG_ALIAS_MAP: Record<string, string[]> = {
     'infliximab-axxq', 'infliximab-dyyb', 'infliximab-abda',
     'ifx', 'tnf inhibitor infliximab', 'anti-tnf infliximab',
     'biosimilar infliximab',
+    'infliximeb', 'inflixmab', 'infliximaab',
   ],
   rituximab: [
     'rituximab', 'rituxan', 'truxima', 'ruxience', 'riabni',

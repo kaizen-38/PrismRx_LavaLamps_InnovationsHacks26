@@ -8,6 +8,7 @@ import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
 import { RequestSummaryCard } from '@/components/assistant/RequestSummaryCard'
 import { WidgetReveal } from '@/components/assistant/WidgetReveal'
+import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -300,6 +301,7 @@ export function WorkspaceClient({
                       <AssistantBubble
                         text={entry.text}
                         modelUsed={displayReport?.modelUsed}
+                        dataSource={displayReport?.meta.dataSource}
                         isLatest={entry === conversation.findLast(e => e.role === 'assistant' && e.text)}
                         onViewReport={() => setActiveReport(prev => prev)}
                       />
@@ -363,7 +365,13 @@ export function WorkspaceClient({
                   <RequestSummaryCard
                     resolvedPayer={displayReport.meta.resolvedPayer}
                     resolvedDrug={displayReport.meta.resolvedDrug}
-                    matchConfidence={displayReport.meta.isIndexed ? 'exact' : 'unindexed'}
+                    matchConfidence={
+                      displayReport.meta.dataSource === 'live_web'
+                        ? 'approximate'
+                        : displayReport.meta.isIndexed
+                          ? 'exact'
+                          : 'unindexed'
+                    }
                     originalQuery={conversation.findLast(e => e.role === 'user')?.text ?? ''}
                   />
                 </WidgetReveal>
@@ -429,16 +437,34 @@ function TypingIndicator() {
   )
 }
 
-function AssistantBubble({ text, modelUsed, isLatest, onViewReport }: { text: string; modelUsed?: string; isLatest: boolean; onViewReport: () => void }) {
+function AssistantBubble({
+  text,
+  modelUsed,
+  dataSource,
+  isLatest,
+  onViewReport,
+}: {
+  text: string
+  modelUsed?: 'bedrock' | 'fallback'
+  dataSource?: string
+  isLatest: boolean
+  onViewReport: () => void
+}) {
+  const sourceLabel =
+    dataSource === 'live_web' ? 'Live web excerpt' : 'Indexed snapshot'
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ padding: '0.75rem 0.875rem', background: 'var(--bg-soft)', borderRadius: '14px 14px 14px 4px', fontSize: 13, color: 'var(--ink-body)', lineHeight: 1.65, border: '1px solid var(--line-soft)' }}>
-        {text}
-        {isLatest && <StreamCursor />}
+        <AssistantMarkdown>{text}</AssistantMarkdown>
+        {isLatest ? (
+          <span style={{ display: 'inline-block', marginTop: 2, verticalAlign: 'middle' }}>
+            <StreamCursor />
+          </span>
+        ) : null}
       </div>
       {modelUsed && (
         <p style={{ margin: 0, fontSize: 10, color: 'var(--ink-faint)' }}>
-          Indexed snapshot · {modelUsed === 'bedrock' ? 'Bedrock' : 'Template'}
+          {sourceLabel} · {modelUsed === 'bedrock' ? 'Bedrock' : 'Template'}
         </p>
       )}
     </div>

@@ -8,7 +8,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest } from 'next/server'
-import { orchestrateStream } from '@/lib/assistant-orchestrator'
+import {
+  enrichStreamPlanWithLive,
+  enrichStreamPlanWithPayerMatrixLive,
+  orchestrateStream,
+} from '@/lib/assistant-orchestrator'
 import { streamBedrock, isBedrockConfigured } from '@/lib/bedrock'
 import type { AssistantRequest } from '@/lib/assistant-types'
 
@@ -22,7 +26,9 @@ You must:
 - Use language like "per indexed policy snapshot", "based on currently indexed data"
 - NEVER invent coverage details — only narrate what the structured data says
 - NEVER say "live", "real-time", or "fetched" unless explicitly told a real fetch occurred
-- Use professional, calm, editorial tone`
+- Use professional, calm, editorial tone
+- You may use brief GitHub-flavored markdown when it helps readability (e.g. **bold** key terms, short bullet lists)
+- For payer-comparison questions, align with the structured per-payer facts in the user message and note that citations live in the matrix`
 
 function sse(obj: unknown): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`)
@@ -54,10 +60,11 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ status: 'error', message: 'Invalid message' }), { status: 400 })
   }
 
-  // Build deterministic plan (no Bedrock calls yet)
+  // Build deterministic plan, then optionally fetch live web policy text for unsupported index misses
   let plan
   try {
-    plan = orchestrateStream(body)
+    plan = await enrichStreamPlanWithPayerMatrixLive(orchestrateStream(body))
+    plan = await enrichStreamPlanWithLive(plan)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Orchestration failed'
     console.error('[assistant/respond] orchestrate error:', msg)
@@ -84,8 +91,8 @@ export async function POST(req: NextRequest) {
         try {
           const textStream = await streamBedrock(
             [{ role: 'user', content: plan.narrativePrompt }],
-            SYSTEM_PROMPT,
-            512
+            plan.streamSystemPrompt ?? SYSTEM_PROMPT,
+            plan.streamMaxTokens ?? 512
           )
           const reader = textStream.getReader()
           while (true) {

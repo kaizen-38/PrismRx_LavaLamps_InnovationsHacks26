@@ -12,6 +12,7 @@ import {
   getSupportedOptions,
   getDocumentText,
   getLivePolicyText,
+  type LivePolicyResult,
   type PolicyLookupFound,
 } from '@/lib/policy/db-repository'
 import type {
@@ -21,7 +22,10 @@ import type {
   Widget,
   LoaderStage,
   BlockerItem,
+  PayerDrugMatrixRow,
 } from '@/lib/assistant-types'
+import type { PolicyDetails } from '@/lib/policy/repository'
+import type { CoverageStatus } from '@/lib/types'
 
 // ── Entity extraction ─────────────────────────────────────────────────────────
 
@@ -40,6 +44,11 @@ const DRUG_PATTERNS: Array<[RegExp, string]> = [
   [/\b(vedolizumab|entyvio)\b/i, 'vedolizumab'],
   [/\b(ocrelizumab|ocrevus)\b/i, 'ocrelizumab'],
   [/\b(tocilizumab|actemra)\b/i, 'tocilizumab'],
+  [/\b(ozempic|wegovy|rybelsus|semaglutide)\b/i, 'semaglutide'],
+  [/\b(mounjaro|zepbound|tirzepatide)\b/i, 'tirzepatide'],
+  [/\b(trulicity|dulaglutide)\b/i, 'dulaglutide'],
+  [/\b(humira|adalimumab)\b/i, 'adalimumab'],
+  [/\b(dupixent|dupilumab)\b/i, 'dupilumab'],
 ]
 
 function extractPayer(text: string): string | undefined {
@@ -56,7 +65,71 @@ function extractDrug(text: string): string | undefined {
   return undefined
 }
 
+/** Words that must not be treated as a drug when inferring from coverage-style phrasing. */
+const INFER_DRUG_STOPWORDS = new Set([
+  'care', 'health', 'united', 'uhc', 'insurance', 'plan', 'plans', 'the', 'drug', 'drugs',
+  'medication', 'medications', 'biologic', 'biologics', 'payer', 'payers', 'policy', 'policies',
+  'does', 'will', 'would', 'should', 'could', 'about', 'regarding', 'supports', 'support',
+  'supporting', 'cover', 'coverage', 'covered', 'check', 'checking', 'asking', 'tell', 'know',
+  'want', 'like', 'need', 'help', 'please', 'thanks', 'thank', 'for', 'with', 'this', 'that',
+  'have', 'has', 'had', 'any', 'some', 'your', 'you', 'me', 'my', 'are', 'is', 'was', 'were',
+  'can', 'may', 'not', 'under', 'what', 'which', 'how', 'when', 'where', 'who', 'why', 'prior',
+  'authorization', 'authorisation', 'auth', 'step', 'therapy', 'therapies', 'included', 'include',
+  'medicare', 'medicaid', 'commercial', 'benefits', 'benefit', 'pa', 'criteria', 'requirements',
+])
+
+/**
+ * When the drug is not in DRUG_PATTERNS, infer a candidate from common question shapes
+ * (e.g. "does UHC support ozempic") so we still run coverage_lookup + live web fallback.
+ */
+function inferDrugNameFromMessage(message: string): string | undefined {
+  const INFER_DRUG_REGEXES: RegExp[] = [
+    /\bsupports?\s+([a-z][a-z0-9-]{2,})\b/gi,
+    /\bsupporting\s+([a-z][a-z0-9-]{2,})\b/gi,
+    /\bcover(?:s|age)?\s+for\s+([a-z][a-z0-9-]{2,})\b/gi,
+    /\bcover(?:s|age)?\s+([a-z][a-z0-9-]{2,})\b/gi,
+    /\bprior\s+auth(?:orization|orisation)?\s+for\s+([a-z][a-z0-9-]{2,})\b/gi,
+    /\b(?:is|are|was|were)\s+([a-z][a-z0-9-]{2,})\s+covered\b/gi,
+    /\b([a-z][a-z0-9-]{2,})\s+(?:covered|included)\s+by\b/gi,
+    /\bfor\s+([a-z][a-z0-9-]{2,})\s*[\s?.!]*$/i,
+  ]
+
+  for (const re of INFER_DRUG_REGEXES) {
+    const r = new RegExp(re.source, re.flags)
+    let m: RegExpExecArray | null
+    while ((m = r.exec(message)) !== null) {
+      const raw = m[1]
+      const low = raw.toLowerCase()
+      if (INFER_DRUG_STOPWORDS.has(low)) continue
+      if (PAYER_PATTERNS.some(([p]) => p.test(raw))) continue
+      return raw.length <= 4 ? raw.toUpperCase() : raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+    }
+  }
+  return undefined
+}
+
+function resolveUserDrug(message: string, contextDrug?: string): string | undefined {
+  const fromCtx = contextDrug?.trim()
+  if (fromCtx) return fromCtx
+  const fromPatterns = extractDrug(message)
+  if (fromPatterns) return fromPatterns
+  return inferDrugNameFromMessage(message)
+}
+
 // ── Intent detection ──────────────────────────────────────────────────────────
+
+/** User wants the same drug compared across indexed payers (matrix), not a single-payer lookup. */
+function wantsDrugPayerMatrixCompare(message: string): boolean {
+  const m = message.toLowerCase()
+  const mentionsPayers = /\bpayers?\b/.test(m) || /\bacross\s+payers?\b/.test(m)
+  if (!mentionsPayers) return false
+  if (/\bcompare\b/.test(m) && /\bfor\b/.test(m)) return true
+  if (/\bcompare\s+coverage\b/.test(m)) return true
+  if (/\bacross\s+(?:all\s+)?payers?\b/.test(m)) return true
+  if (/\bwhich\s+payers?\s+(cover|covers|have|offer)\b/.test(m)) return true
+  if (/\bside[\s-]by[\s-]side\b/.test(m)) return true
+  return false
+}
 
 function detectIntent(
   message: string,
@@ -67,6 +140,12 @@ function detectIntent(
 
   const isGreeting = /^(hi|hello|hey|good morning|good afternoon|howdy|sup|yo|greetings)[\s!?.]*$/.test(m)
   if (isGreeting) return 'greeting'
+
+  if (wantsDrugPayerMatrixCompare(message)) {
+    const d = drug || inferDrugNameFromMessage(message)
+    if (d) return 'payer_matrix_compare'
+    return 'missing_drug'
+  }
 
   const wantsCoverage =
     /\b(cover|coverage|pa|prior auth|approved|reimburs|benefit|criteria|policy|check|does|will|is)\b/.test(m)
@@ -108,6 +187,23 @@ function buildGracefulLoaderStages(): LoaderStage[] {
     { id: 'resolve',  label: 'Checking payer and drug identifiers…',          durationMs: 600 },
     { id: 'search',   label: 'Searching indexed policy dataset…',             durationMs: 800 },
     { id: 'suggest',  label: 'Finding closest available indexed options…',    durationMs: 600 },
+  ]
+}
+
+function buildLiveWebLoaderStages(): LoaderStage[] {
+  return [
+    { id: 'live_search', label: 'Searching the web for payer policy documents…', durationMs: 1400 },
+    { id: 'live_extract', label: 'Extracting policy text from the source…', durationMs: 1000 },
+    { id: 'live_summarize', label: 'Preparing a grounded summary…', durationMs: 700 },
+  ]
+}
+
+function buildMatrixCompareLoaderStages(drug: string): LoaderStage[] {
+  return [
+    { id: 'm1', label: `Loading indexed policies for ${drug}…`, durationMs: 500 },
+    { id: 'm2', label: 'Building payer × coverage matrix…', durationMs: 700 },
+    { id: 'm3', label: 'Attaching policy citations per payer…', durationMs: 600 },
+    { id: 'm4', label: 'Synthesizing comparison narrative…', durationMs: 550 },
   ]
 }
 
@@ -331,6 +427,103 @@ function buildBlockers(policy: PolicyLookupFound): BlockerItem[] {
   }
 
   const biosimilarNote = policy.preferred_product_notes[0]
+  if (biosimilarNote) {
+    blockers.push({
+      label: 'Product Preference Note',
+      value: biosimilarNote,
+      type: 'biosimilar_note',
+      severity: 'soft',
+    })
+  }
+
+  return blockers
+}
+
+function coverageStatusLabel(status: CoverageStatus): string {
+  switch (status) {
+    case 'covered':
+      return 'Covered'
+    case 'conditional':
+      return 'Conditional coverage'
+    case 'preferred':
+      return 'Preferred'
+    case 'nonpreferred':
+      return 'Non-preferred'
+    case 'not_covered':
+      return 'Not covered'
+    case 'unclear':
+      return 'Unclear'
+    default:
+      return String(status)
+  }
+}
+
+/** Blockers for manual PolicyDetails / PolicyDNA (stream path). */
+function buildBlockersFromDetails(details: PolicyDetails): BlockerItem[] {
+  const blockers: BlockerItem[] = []
+  const raw = details.record.raw
+  const op = raw.operational_rules
+
+  if (details.record.paRequired) {
+    blockers.push({
+      label: 'Prior Authorization Required',
+      value: 'A prior authorization must be submitted before dispensing.',
+      type: 'prior_auth',
+      severity: 'hard',
+    })
+  }
+
+  if (details.record.stepTherapyRequired && details.priorFailureRequirements.length > 0) {
+    blockers.push({
+      label: 'Step Therapy',
+      value: details.priorFailureRequirements.slice(0, 2).join(' | '),
+      type: 'step_therapy',
+      severity: 'hard',
+    })
+  }
+
+  const site = details.siteOfCare ?? op.site_of_care
+  if (site) {
+    blockers.push({
+      label: 'Site-of-Care Restriction',
+      value: site,
+      type: 'site_of_care',
+      severity: 'soft',
+    })
+  }
+
+  const specialty = details.specialtyRequired ?? raw.clinical_criteria.specialty_required
+  if (specialty) {
+    blockers.push({
+      label: 'Specialist Required',
+      value: specialty,
+      type: 'specialist',
+      severity: 'soft',
+    })
+  }
+
+  if (op.renewal_interval_days != null && op.renewal_interval_days < 365) {
+    blockers.push({
+      label: 'Reauthorization',
+      value: `Renewal approximately every ${op.renewal_interval_days} days`,
+      type: 'reauth',
+      severity: 'info',
+    })
+  }
+
+  const labs = raw.clinical_criteria.lab_requirements ?? []
+  if (labs.length > 0) {
+    blockers.push({
+      label: 'Lab / Biomarker Requirements',
+      value: labs.slice(0, 2).join(' | '),
+      type: 'lab',
+      severity: 'soft',
+    })
+  }
+
+  const biosimilarNote = raw.clinical_criteria.additional_notes?.find(n =>
+    /biosimilar|non-preferred|preferred/i.test(n),
+  )
   if (biosimilarNote) {
     blockers.push({
       label: 'Product Preference Note',
@@ -576,9 +769,9 @@ async function buildCoverageResponse(
 export async function orchestrate(req: AssistantRequest): Promise<AssistantResponse> {
   const requestId = randomUUID()
 
-  // 1. Extract entities from message + context
-  const payer = req.context?.payer ?? extractPayer(req.message)
-  const drug = req.context?.drug ?? extractDrug(req.message)
+  // 1. Extract entities from message + context (infer drug from phrasing when not in pattern list)
+  const payer = req.context?.payer?.trim() || extractPayer(req.message) || undefined
+  const drug = resolveUserDrug(req.message, req.context?.drug)
 
   // 2. Detect intent
   const intent = detectIntent(req.message, payer, drug)
@@ -645,6 +838,309 @@ export interface StreamPlan {
   sideWidgets: Widget[]
   loaderStages: LoaderStage[]
   meta: Omit<AssistantResponse['meta'], 'modelUsed'>
+  /**
+   * When the static index cannot answer, the respond route may call the live policy API
+   * using these strings before streaming (see enrichStreamPlanWithLive).
+   */
+  liveFallbackQuery?: { payer: string; drug: string; userMessage: string }
+  /**
+   * Compare same drug across payers using live web fetch per payer (drug not in index or no indexed rows).
+   * Filled in orchestrateStream; resolved in enrichStreamPlanWithPayerMatrixLive.
+   */
+  payerLiveMatrixQuery?: { drugDisplay: string; userMessage: string }
+  /** Overrides default streaming system prompt (e.g. live web excerpt grounding). */
+  streamSystemPrompt?: string
+  streamMaxTokens?: number
+}
+
+/** System prompt for Bedrock when narrative is grounded in a live web/PDF excerpt. */
+export const STREAM_LIVE_WEB_SYSTEM_PROMPT = `You are PrismRx's medical benefit drug policy assistant. The user message includes text from a LIVE web or PDF policy fetch - not PrismRx's static indexed dataset. You may say the answer is based on a live web excerpt. Ground every factual coverage or prior-authorization claim ONLY in that excerpt. If the excerpt does not answer the question, say so clearly. Write 2-5 sentences for a healthcare professional, calm and precise. Ask the reader to verify on the payer's official site. You may use brief GitHub-flavored markdown when it helps (**bold**, short lists).`
+
+/** Multi-payer comparison: several excerpts in one prompt. */
+export const STREAM_LIVE_MATRIX_SYSTEM_PROMPT = `${STREAM_LIVE_WEB_SYSTEM_PROMPT}
+
+You are answering a cross-payer comparison. Several labeled excerpts follow (one per payer). Compare access or coverage themes only using those excerpts. If an excerpt is missing, short, or off-topic for that payer, say so for that payer only. Do not assume parity across payers when excerpts differ in depth. Write 5-10 sentences; brief markdown lists are OK.`
+
+const MIN_LIVE_POLICY_CHARS = 80
+const MAX_LIVE_EXCERPT_CHARS = 45_000
+const LIVE_PANEL_EXCERPT_CHARS = 1200
+
+function formatLiveSourceSummary(url: string | null, source: 'pdf' | 'html' | null): string {
+  if (url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./i, '')
+    } catch {
+      /* ignore */
+    }
+  }
+  if (source === 'pdf') return 'PDF document'
+  if (source === 'html') return 'HTML page'
+  return 'Web search'
+}
+
+export async function enrichStreamPlanWithLive(plan: StreamPlan): Promise<StreamPlan> {
+  const q = plan.liveFallbackQuery
+  if (!q || !q.payer.trim() || !q.drug.trim()) return plan
+
+  try {
+    const live = await getLivePolicyText(q.payer.trim(), q.drug.trim())
+    const text = (live.text ?? '').trim()
+    if (!live.found || text.length < MIN_LIVE_POLICY_CHARS) return plan
+
+    const excerpt =
+      text.length > MAX_LIVE_EXCERPT_CHARS
+        ? `${text.slice(0, MAX_LIVE_EXCERPT_CHARS)}\n\n[Excerpt truncated for length]`
+        : text
+    const urlLine = live.url
+      ? `Source URL: ${live.url}`
+      : 'Source: web search (URL was not returned — verify on the official payer site).'
+    const fmt = live.source ?? 'unknown'
+
+    const narrativePrompt = `USER QUESTION:\n${q.userMessage}\n\n---\nBelow is text retrieved via LIVE web search for ${q.payer} + ${q.drug}. It may be incomplete, outdated, or from an unofficial page.\n${urlLine}\nFormat: ${fmt}\nApprox. character count: ${live.charCount}\n\nPOLICY EXCERPT:\n${excerpt}\n---\nAnswer the user's question using ONLY the excerpt. If the excerpt is insufficient, say what is missing.`
+
+    const fallbackText = `A live web policy excerpt was retrieved (${live.charCount.toLocaleString()} characters) for ${q.payer} + ${q.drug}. ${live.url ? `Source: ${live.url}. ` : ''}An automated summary could not be generated — review the payer's official policy to verify coverage.`
+
+    const sourceSummary = formatLiveSourceSummary(live.url, live.source)
+    const panelExcerpt = text.slice(0, LIVE_PANEL_EXCERPT_CHARS).trim()
+    const excerptQuote =
+      panelExcerpt + (text.length > LIVE_PANEL_EXCERPT_CHARS ? '\n\n[Truncated in this panel — full excerpt was sent to the model.]' : '')
+
+    const liveHero: Widget = {
+      type: 'coverage_report_hero',
+      props: {
+        payer: q.payer,
+        drug: q.drug,
+        coverageStatus: 'unclear',
+        paRequired: false,
+        stepTherapyRequired: false,
+        effectiveDate: 'Confirm effective dates on the payer site',
+        versionLabel: sourceSummary,
+        shortTakeaway:
+          `Live policy text was retrieved for this payer and drug (not from PrismRx's static index). Read the chat summary for the model's grounded answer; use Open source or the evidence panel to verify.`,
+        frictionScore: 50,
+        reportSource: 'live_web',
+        liveSourceUrl: live.url,
+        liveExcerptFormat: live.source,
+        liveCharCount: live.charCount,
+      },
+    }
+
+    return {
+      ...plan,
+      narrativePrompt,
+      fallbackText,
+      streamSystemPrompt: STREAM_LIVE_WEB_SYSTEM_PROMPT,
+      streamMaxTokens: 1536,
+      widget: liveHero,
+      sideWidgets: [
+        {
+          type: 'evidence_drawer',
+          props: {
+            policyTitle: `${q.payer} — ${q.drug} · Live excerpt`,
+            evidence: [
+              {
+                id: 'live-excerpt',
+                quote: excerptQuote,
+                sourceLabel: sourceSummary,
+                sourceUrl: live.url ?? '',
+                effectiveDate: '',
+                page: null,
+                section: 'Retrieved policy text',
+              },
+            ],
+          },
+        },
+        {
+          type: 'limitation_notice',
+          props: {
+            datasetNote: live.url
+              ? `Live web fetch — verify on the payer site · ${live.url}`
+              : 'Live web search — excerpt may be incomplete; confirm on the payer\'s official site.',
+          },
+        },
+      ],
+      loaderStages: buildLiveWebLoaderStages(),
+      meta: {
+        ...plan.meta,
+        isIndexed: false,
+        dataSource: 'live_web',
+        resolvedPayer: q.payer,
+        resolvedDrug: q.drug,
+        timestamp: new Date().toISOString(),
+      },
+      liveFallbackQuery: undefined,
+    }
+  } catch (e) {
+    console.error('[enrichStreamPlanWithLive]', e)
+    return plan
+  }
+}
+
+const MAX_LIVE_EXCERPT_PER_PAYER_MATRIX = 5_500
+
+export async function enrichStreamPlanWithPayerMatrixLive(plan: StreamPlan): Promise<StreamPlan> {
+  const q = plan.payerLiveMatrixQuery
+  if (!q?.drugDisplay?.trim()) return plan
+
+  const drugDisplay = q.drugDisplay.trim()
+  const drugKey =
+    drugDisplay
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '') || 'unknown_drug'
+
+  try {
+    const payers = policyRepository.listSupportedPayers()
+    const results = await Promise.all(
+      payers.map(async p => {
+        const live = await getLivePolicyText(p.displayName, drugDisplay)
+        return { p, live }
+      }),
+    )
+
+    type Bundle = { row: PayerDrugMatrixRow; text: string; live: LivePolicyResult }
+    const bundles: Bundle[] = []
+
+    for (const { p, live } of results) {
+      const text = (live.text ?? '').trim()
+      if (!live.found || text.length < MIN_LIVE_POLICY_CHARS) continue
+
+      const sourceSummary = formatLiveSourceSummary(live.url, live.source)
+      const panelQuote =
+        text.slice(0, LIVE_PANEL_EXCERPT_CHARS).trim() +
+        (text.length > LIVE_PANEL_EXCERPT_CHARS
+          ? '\n\n[Truncated in panel — full text used for model.]'
+          : '')
+
+      bundles.push({
+        row: {
+          payerId: p.id,
+          payerDisplay: p.displayName,
+          coverageStatus: 'unclear',
+          paRequired: false,
+          stepTherapyRequired: false,
+          frictionScore: 0,
+          effectiveDate: 'Verify on payer site',
+          versionLabel: sourceSummary,
+          policyId: live.url ?? 'live-web',
+          nextBestActionShort: 'Live web excerpt — verify on official payer policy.',
+          rowSource: 'live_web',
+          evidence: [
+            {
+              id: `live-matrix-${p.id}-${drugKey}`,
+              quote: panelQuote,
+              sourceLabel: sourceSummary,
+              sourceUrl: live.url ?? '',
+              effectiveDate: '',
+              page: null,
+              section: 'Live policy excerpt',
+            },
+          ],
+        },
+        text,
+        live,
+      })
+    }
+
+    bundles.sort((a, b) => a.row.payerDisplay.localeCompare(b.row.payerDisplay))
+    const liveRows = bundles.map(b => b.row)
+
+    if (liveRows.length === 0) {
+      const drugs = policyRepository.listSupportedDrugs()
+      return {
+        ...plan,
+        payerLiveMatrixQuery: undefined,
+        narrativePrompt: null,
+        fallbackText: `No usable live policy text was found for "${drugDisplay}" across payer web searches (minimum ${MIN_LIVE_POLICY_CHARS} characters per hit). Try a different spelling, the generic name (e.g. eculizumab for Soliris), or pick an indexed drug family.`,
+        widget: {
+          type: 'supported_options_card',
+          props: {
+            requestedDrug: drugDisplay,
+            supportedPayers: payers.map(x => ({ id: x.id, displayName: x.displayName })),
+            supportedDrugs: drugs.map(d => ({ key: d.key, displayName: d.displayName })),
+          },
+        },
+        sideWidgets: [
+          {
+            type: 'limitation_notice',
+            props: { datasetNote: 'Live web search did not return sufficient text for a matrix row for any payer.' },
+          },
+        ],
+        loaderStages: buildGracefulLoaderStages(),
+        meta: {
+          ...plan.meta,
+          resolvedPayer: 'All indexed payers',
+          resolvedDrug: drugDisplay,
+          isIndexed: false,
+          dataSource: 'live_web',
+          timestamp: new Date().toISOString(),
+        },
+      }
+    }
+
+    const narrativeBlocks = bundles
+      .map(({ row, text, live }) => {
+        const chunk =
+          text.length > MAX_LIVE_EXCERPT_PER_PAYER_MATRIX
+            ? `${text.slice(0, MAX_LIVE_EXCERPT_PER_PAYER_MATRIX)}\n[Truncated]`
+            : text
+        return `### ${row.payerDisplay}\nSource URL: ${live.url ?? 'not recorded'}\nFormat: ${live.source ?? 'unknown'}\nApprox. chars: ${live.charCount}\n\n${chunk}`
+      })
+      .join('\n\n---\n\n')
+
+    const narrativePrompt = `USER QUESTION:\n${q.userMessage}\n\n---\nYou are given LIVE web-retrieved policy excerpts for "${drugDisplay}" — one block per payer. This is NOT PrismRx's static index. Excerpts may be wrong page, outdated, or incomplete.\n\n${narrativeBlocks}\n---\nCompare payers using ONLY these excerpts. Note gaps where an excerpt is thin or off-topic. Tell the user the matrix lists verbatim quotes and links per payer.`
+
+    const fallbackText = `Live web excerpts for ${drugDisplay} from ${liveRows.length} payer searches are shown in the comparison matrix. Open **Citations** on each row for quotes and source links; the chat summary compares themes grounded only in those excerpts.`
+
+    const matrixWidget: Widget = {
+      type: 'payer_drug_matrix',
+      props: {
+        drugDisplay,
+        drugKey,
+        rows: liveRows,
+        matrixSource: 'live_web',
+      },
+    }
+
+    return {
+      ...plan,
+      payerLiveMatrixQuery: undefined,
+      narrativePrompt,
+      fallbackText,
+      streamSystemPrompt: STREAM_LIVE_MATRIX_SYSTEM_PROMPT,
+      streamMaxTokens: 2048,
+      widget: matrixWidget,
+      sideWidgets: [
+        {
+          type: 'limitation_notice',
+          props: {
+            datasetNote:
+              'Live multi-payer web fetch — quality varies by payer. Confirm every detail on the payer\'s official formulary or medical policy.',
+          },
+        },
+      ],
+      loaderStages: buildLiveWebLoaderStages(),
+      meta: {
+        ...plan.meta,
+        resolvedPayer: 'All indexed payers',
+        resolvedDrug: drugDisplay,
+        isIndexed: false,
+        dataSource: 'live_web',
+        timestamp: new Date().toISOString(),
+      },
+    }
+  } catch (e) {
+    console.error('[enrichStreamPlanWithPayerMatrixLive]', e)
+    return {
+      ...plan,
+      payerLiveMatrixQuery: undefined,
+      narrativePrompt: null,
+      fallbackText: 'Something went wrong while fetching live payer comparisons. Try again, or use a drug from the indexed list.',
+      widget: plan.widget,
+      streamSystemPrompt: undefined,
+      streamMaxTokens: undefined,
+    }
+  }
 }
 
 /**
@@ -653,9 +1149,9 @@ export interface StreamPlan {
  */
 export function orchestrateStream(req: AssistantRequest): StreamPlan {
   const requestId = randomUUID()
-  const inputPayer = req.context?.payer ?? extractField(req.message, 'payer')
-  const inputDrug = req.context?.drug ?? extractField(req.message, 'drug')
-  const intent = detectIntent(req.message, { ...req.context, payer: inputPayer, drug: inputDrug })
+  const inputPayer = req.context?.payer?.trim() || extractPayer(req.message) || undefined
+  const inputDrug = resolveUserDrug(req.message, req.context?.drug)
+  const intent = detectIntent(req.message, inputPayer, inputDrug)
 
   // ── Greeting ──
   if (intent === 'greeting') {
@@ -690,6 +1186,116 @@ export function orchestrateStream(req: AssistantRequest): StreamPlan {
     }
   }
 
+  // ── Same drug, all payers — comparison matrix + narrative (indexed or live web) ──
+  if (intent === 'payer_matrix_compare') {
+    const rawDrug = inputDrug?.trim()
+    if (!rawDrug) {
+      const payers = policyRepository.listSupportedPayers()
+      const drugs = policyRepository.listSupportedDrugs()
+      return {
+        requestId,
+        intent: 'missing_drug',
+        narrativePrompt: null,
+        fallbackText: 'Which drug should I compare across payers? For example: “compare payers for infliximab” or “compare payers for Soliris”.',
+        widget: { type: 'coverage_intake_form', props: { prefillPayer: req.context?.payer, prefillDrug: undefined, prefillDiagnosis: req.context?.diagnosis } },
+        sideWidgets: [{ type: 'supported_options_card', props: { supportedPayers: payers.map(p => ({ id: p.id, displayName: p.displayName })), supportedDrugs: drugs.map(d => ({ key: d.key, displayName: d.displayName })) } }],
+        loaderStages: [],
+        meta: { resolvedPayer: null, resolvedDrug: null, isIndexed: false, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+      }
+    }
+
+    const resolvedDrug = policyRepository.resolveDrug(inputDrug!)
+    const payers = policyRepository.listSupportedPayers()
+    const rows: PayerDrugMatrixRow[] = []
+
+    if (resolvedDrug) {
+      for (const p of payers) {
+        const details = policyRepository.getPolicyDetails(p.id, resolvedDrug.key)
+        if (!details) continue
+        const nba = details.nextBestAction
+        rows.push({
+          payerId: p.id,
+          payerDisplay: p.displayName,
+          coverageStatus: details.record.coverageStatus,
+          paRequired: details.record.paRequired,
+          stepTherapyRequired: details.record.stepTherapyRequired,
+          frictionScore: details.frictionScore,
+          effectiveDate: details.record.effectiveDate,
+          versionLabel: details.record.versionLabel,
+          policyId: details.record.policyId,
+          nextBestActionShort: nba.length > 140 ? `${nba.slice(0, 137)}…` : nba,
+          evidence: details.evidence,
+          rowSource: 'indexed',
+        })
+      }
+    }
+
+    const drugLabelForLive = resolvedDrug?.displayName ?? rawDrug
+
+    if (rows.length === 0) {
+      return {
+        requestId,
+        intent: 'payer_matrix_compare',
+        narrativePrompt: null,
+        fallbackText: `Searching the web for "${drugLabelForLive}" under each indexed payer name — this may take a moment…`,
+        widget: null,
+        sideWidgets: [],
+        payerLiveMatrixQuery: { drugDisplay: drugLabelForLive, userMessage: req.message },
+        loaderStages: [
+          { id: 'lmx1', label: `Live search: ${drugLabelForLive} × each payer…`, durationMs: 2200 },
+          { id: 'lmx2', label: 'Building comparison matrix from excerpts…', durationMs: 900 },
+          { id: 'lmx3', label: 'Attaching citations per payer…', durationMs: 700 },
+        ],
+        streamSystemPrompt: STREAM_LIVE_MATRIX_SYSTEM_PROMPT,
+        streamMaxTokens: 2048,
+        meta: {
+          resolvedPayer: 'All indexed payers',
+          resolvedDrug: drugLabelForLive,
+          isIndexed: false,
+          dataSource: 'live_web',
+          timestamp: new Date().toISOString(),
+        },
+      }
+    }
+
+    const drugDisplay = resolvedDrug!.displayName
+    const summaryLines = rows.map(
+      r =>
+        `${r.payerDisplay}: coverage=${r.coverageStatus}, PA=${r.paRequired}, step_therapy=${r.stepTherapyRequired}, friction=${r.frictionScore}, effective=${r.effectiveDate}, policy_id=${r.policyId}`,
+    ).join('\n')
+
+    const narrativePrompt = `The user asked to compare indexed payers for the same drug: ${drugDisplay}.
+Below is a factual summary line per payer from PrismRx's indexed policy snapshot (do not invent or extend beyond these facts):
+
+${summaryLines}
+
+Write 4-7 sentences for a healthcare professional comparing access burden across payers (prior auth, step therapy, friction scores where notable). Mention that the UI matrix lists verbatim **citations** per payer with source links. Use brief markdown if helpful. If two payers look similar on these fields, say so.`
+
+    const fallbackText = `Indexed comparison for ${drugDisplay} across ${rows.length} payers is shown in the matrix. Expand **Citations** on each row for policy quotes and links; the chat summary highlights where PA, step therapy, or friction differ materially.`
+
+    const matrixWidget: Widget = {
+      type: 'payer_drug_matrix',
+      props: { drugDisplay, drugKey: resolvedDrug!.key, rows, matrixSource: 'indexed' },
+    }
+
+    return {
+      requestId,
+      intent: 'payer_matrix_compare',
+      narrativePrompt,
+      fallbackText,
+      widget: matrixWidget,
+      sideWidgets: [{ type: 'limitation_notice', props: {} }],
+      loaderStages: buildMatrixCompareLoaderStages(drugDisplay),
+      meta: {
+        resolvedPayer: 'All indexed payers',
+        resolvedDrug: drugDisplay,
+        isIndexed: true,
+        dataSource: 'manual_indexed',
+        timestamp: new Date().toISOString(),
+      },
+    }
+  }
+
   // ── Explore / compare ──
   if (intent === 'explore_drugs' || intent === 'compare_payers') {
     const payers = policyRepository.listSupportedPayers()
@@ -718,6 +1324,12 @@ export function orchestrateStream(req: AssistantRequest): StreamPlan {
       const what = !resolvedPayer
         ? `"${inputPayer ?? 'that payer'}" is not in the indexed payer dataset`
         : `"${inputDrug ?? 'that drug'}" is not in the indexed drug dataset`
+      const rawPayer = inputPayer?.trim()
+      const rawDrug = inputDrug?.trim()
+      const liveFallbackQuery =
+        rawPayer && rawDrug
+          ? { payer: rawPayer, drug: rawDrug, userMessage: req.message }
+          : undefined
       return {
         requestId, intent: 'unsupported',
         narrativePrompt: null,
@@ -726,6 +1338,7 @@ export function orchestrateStream(req: AssistantRequest): StreamPlan {
         sideWidgets: [{ type: 'limitation_notice', props: {} }],
         loaderStages: buildGracefulLoaderStages(),
         meta: { resolvedPayer: resolvedPayer?.id ?? null, resolvedDrug: resolvedDrug?.key ?? null, isIndexed: false, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+        liveFallbackQuery,
       }
     }
 
@@ -741,12 +1354,17 @@ export function orchestrateStream(req: AssistantRequest): StreamPlan {
         sideWidgets: [{ type: 'limitation_notice', props: {} }],
         loaderStages: buildGracefulLoaderStages(),
         meta: { resolvedPayer: resolvedPayer.id, resolvedDrug: resolvedDrug.key, isIndexed: false, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
+        liveFallbackQuery: {
+          payer: resolvedPayer.displayName,
+          drug: resolvedDrug.displayName,
+          userMessage: req.message,
+        },
       }
     }
 
     const related = policyRepository.getRelatedCombinations(resolvedPayer.id, resolvedDrug.key)
-    const blockers = buildBlockers(details)
-    const status = statusLabel(details.record.coverageStatus)
+    const blockers = buildBlockersFromDetails(details)
+    const status = coverageStatusLabel(details.record.coverageStatus)
     const payerDisplay = resolvedPayer.displayName
     const drugDisplay = resolvedDrug.displayName
 
@@ -759,7 +1377,7 @@ Step Therapy: ${details.record.stepTherapyRequired ? 'Yes — ' + details.priorF
 Site of Care: ${details.siteOfCare ?? 'Not specified'}
 Effective Date: ${details.record.effectiveDate}
 Next best action: ${details.nextBestAction}
-Use language like "per the indexed policy snapshot" and be factual and concise.`
+Use language like "per the indexed policy snapshot" and be factual and concise. You may use brief markdown (**bold**, short lists) if it improves clarity.`
 
     const fallbackText = `Per the indexed policy snapshot, ${payerDisplay} covers ${drugDisplay} with ${details.record.paRequired ? 'prior authorization required' : 'no prior authorization required'}. ${details.record.stepTherapyRequired ? `Step therapy is required — failure of ${details.priorFailureRequirements.slice(0, 2).join(', ')} must be documented.` : ''} The best available indexed policy version is effective ${details.record.effectiveDate}.`
 
@@ -820,42 +1438,4 @@ Use language like "per the indexed policy snapshot" and be factual and concise.`
     loaderStages: [],
     meta: { resolvedPayer: null, resolvedDrug: null, isIndexed: true, dataSource: 'manual_indexed', timestamp: new Date().toISOString() },
   }
-}
-
-// ── Simple field extractor ────────────────────────────────────────────────────
-// Extracts payer or drug names from free-text messages.
-
-const PAYER_PATTERNS = [
-  /\baetna\b/i, /\buhc\b/i, /\bunited\b/i, /\bcigna\b/i,
-  /\banthem\b/i, /\bblue shield\b/i, /\bbsca\b/i,
-]
-const DRUG_PATTERNS = [
-  /\binfliximab\b/i, /\bremicade\b/i, /\binflectra\b/i, /\bavsola\b/i, /\brenflexis\b/i,
-  /\brituximab\b/i, /\brituxan\b/i, /\btruxima\b/i,
-  /\bvedolizumab\b/i, /\bentyvio\b/i,
-  /\btocilizumab\b/i, /\bactemra\b/i,
-  /\bocrelizumab\b/i, /\bocrevus\b/i,
-]
-
-function extractField(message: string, field: 'payer' | 'drug'): string | undefined {
-  const patterns = field === 'payer' ? PAYER_PATTERNS : DRUG_PATTERNS
-  for (const pattern of patterns) {
-    const match = message.match(pattern)
-    if (match) return match[0]
-  }
-
-  // 5. Not found — show fallback
-  if (!lookupResult.found) {
-    return buildFallbackResponse(
-      requestId,
-      lookupResult.requested_payer,
-      lookupResult.requested_drug,
-      lookupResult.available_payers,
-      lookupResult.available_drugs,
-      lookupResult.message,
-    )
-  }
-
-  // 6. Fetch document + analyze with Claude
-  return buildCoverageResponse(requestId, lookupResult, payer, drug, req.message)
 }

@@ -14,6 +14,7 @@ import { LimitationNotice } from './LimitationNotice'
 import { SiteOfCareWidget } from './SiteOfCareWidget'
 import { PreferredAlternativeCard } from './PreferredAlternativeCard'
 import { MiniComparisonWidget } from './MiniComparisonWidget'
+import { PayerDrugMatrix } from './PayerDrugMatrix'
 
 interface Props {
   widget: Widget
@@ -92,6 +93,9 @@ export function WidgetRenderer({ widget, onAction, onIntakeSubmit, onLookup, onS
           onSelect={onLookup}
         />
       )
+
+    case 'payer_drug_matrix':
+      return <PayerDrugMatrix {...widget.props} />
 
     default:
       return null
