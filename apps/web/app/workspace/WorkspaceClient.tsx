@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Send, RotateCcw, AlertCircle, Sparkles, Grid3x3, Radio, Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
+import { Send, RotateCcw, AlertCircle, Sparkles, Grid3x3, Radio, Mic, MicOff, Volume2 } from 'lucide-react'
 import type { AssistantResponse } from '@/lib/assistant-types'
 import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
@@ -222,96 +222,112 @@ export function WorkspaceClient({
     }
   }
 
-  // ── Voice input (Web Speech API) ──────────────────────────────────────────
-  const [isListening, setIsListening] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null)
-
-  const toggleVoice = useCallback(() => {
-    if (isListening) {
-      recognitionRef.current?.stop()
-      setIsListening(false)
-      return
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
-    if (!SR) {
-      alert('Voice input is only supported in Chrome or Edge. Please switch browsers.')
-      return
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rec = new SR() as any
-    rec.lang = 'en-US'
-    rec.continuous = false
-    rec.interimResults = false
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rec.onresult = (e: any) => {
-      const transcript: string = e.results[0]?.[0]?.transcript ?? ''
-      if (transcript) {
-        setInput(prev => (prev ? prev + ' ' + transcript : transcript))
-        setIsListening(false)
-      }
-    }
-    rec.onend = () => setIsListening(false)
-    rec.onerror = () => setIsListening(false)
-    recognitionRef.current = rec
-    rec.start()
-    setIsListening(true)
-  }, [isListening])
-
-  // ── ElevenLabs TTS output ────────────────────────────────────────────────
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [autoSpeak, setAutoSpeak] = useState(false)
+  // ── Voice pipeline: record → STT → model → ElevenLabs TTS ───────────────
+  type VoiceState = 'idle' | 'recording' | 'transcribing' | 'speaking'
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle')
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  const speakText = useCallback(async (text: string) => {
-    if (!text || isSpeaking) return
-    // Stop any in-progress audio
+  // Stop any playing audio
+  const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause()
+      URL.revokeObjectURL(audioRef.current.src)
       audioRef.current = null
     }
-    setIsSpeaking(true)
+  }, [])
+
+  // Speak text via ElevenLabs — fires automatically after every assistant reply
+  const speakText = useCallback(async (text: string) => {
+    if (!text) return
+    stopAudio()
+    setVoiceState('speaking')
     try {
       const res = await fetch('/api/voice/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
-      if (!res.ok) return
+      if (!res.ok) { setVoiceState('idle'); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioRef.current = audio
-      audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(url) }
-      audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(url) }
+      audio.onended = () => { setVoiceState('idle'); URL.revokeObjectURL(url) }
+      audio.onerror = () => { setVoiceState('idle'); URL.revokeObjectURL(url) }
       await audio.play()
     } catch {
-      setIsSpeaking(false)
+      setVoiceState('idle')
     }
-  }, [isSpeaking])
+  }, [stopAudio])
 
-  const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current = null
-    }
-    setIsSpeaking(false)
-  }, [])
-
-  // Auto-speak latest assistant reply when autoSpeak is on
+  // Auto-speak every new assistant reply — always on, no toggle
   const lastAssistantText = useMemo(
     () => conversation.findLast(e => e.role === 'assistant' && e.text && !e.isLoading)?.text ?? '',
     [conversation]
   )
-  const prevLastTextRef = useRef('')
+  const prevSpokenRef = useRef('')
   useEffect(() => {
-    if (!autoSpeak) return
-    if (lastAssistantText && lastAssistantText !== prevLastTextRef.current) {
-      prevLastTextRef.current = lastAssistantText
+    if (lastAssistantText && lastAssistantText !== prevSpokenRef.current) {
+      prevSpokenRef.current = lastAssistantText
       speakText(lastAssistantText)
     }
-  }, [lastAssistantText, autoSpeak, speakText])
+  }, [lastAssistantText, speakText])
+
+  // Start recording via MediaRecorder
+  const startRecording = useCallback(async () => {
+    stopAudio()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      const recorder = new MediaRecorder(stream, { mimeType })
+      audioChunksRef.current = []
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        setVoiceState('transcribing')
+        try {
+          const form = new FormData()
+          form.append('audio', blob, 'audio.webm')
+          const res = await fetch('/api/voice/transcribe', { method: 'POST', body: form })
+          const { transcript } = await res.json()
+          if (transcript?.trim()) {
+            // Show transcript in chat and send to model — TTS fires automatically on reply
+            handleSend(transcript.trim())
+          }
+        } catch {
+          // silently fail — user can type instead
+        } finally {
+          setVoiceState('idle')
+        }
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setVoiceState('recording')
+    } catch {
+      setVoiceState('idle')
+    }
+  }, [stopAudio, handleSend])
+
+  // Stop recording
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop()
+    mediaRecorderRef.current = null
+  }, [])
+
+  // Single tap: toggle record on/off
+  const handleMicClick = useCallback(() => {
+    if (voiceState === 'recording') {
+      stopRecording()
+    } else if (voiceState === 'speaking') {
+      stopAudio()
+      setVoiceState('idle')
+    } else if (voiceState === 'idle') {
+      startRecording()
+    }
+  }, [voiceState, startRecording, stopRecording, stopAudio])
 
   const latestLoaderStages = conversation.findLast(e => e.response?.loaderStages.length)?.response?.loaderStages ?? []
   const displayResponse = activeResponse
@@ -407,55 +423,32 @@ export function WorkspaceClient({
               Document-grounded answers · indexed + live policy pull
             </p>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {/* Auto-speak toggle */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.92 }}
-              onClick={() => {
-                if (isSpeaking) stopSpeaking()
-                setAutoSpeak(v => !v)
-              }}
-              title={autoSpeak ? 'Voice on — click to mute' : 'Click to enable voice responses'}
-              style={{
-                background: autoSpeak ? 'rgba(43,80,255,0.1)' : 'var(--bg-soft)',
-                border: autoSpeak ? '1px solid rgba(43,80,255,0.3)' : '1px solid var(--line-soft)',
-                borderRadius: 10, cursor: 'pointer',
-                color: autoSpeak ? '#2B50FF' : 'var(--ink-muted)',
-                padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {isSpeaking
-                ? <motion.span animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 0.7 }}><Volume2 style={{ width: 15, height: 15 }} /></motion.span>
-                : autoSpeak ? <Volume2 style={{ width: 15, height: 15 }} /> : <VolumeX style={{ width: 15, height: 15 }} />
-              }
-            </motion.button>
-            {/* Reset */}
-            <button
-              type="button"
-              onClick={() => {
-                stopSpeaking()
-                setConversation([])
-                setActiveResponse(null)
-                setShowLoader(false)
-                setTimeout(() => handleSend('hi', undefined, true), 100)
-              }}
-              title="Reset conversation"
-              style={{
-                background: 'var(--bg-soft)',
-                border: '1px solid var(--line-soft)',
-                borderRadius: 10,
-                cursor: 'pointer',
-                color: 'var(--ink-muted)',
-                padding: '0.4rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <RotateCcw style={{ width: 15, height: 15 }} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              stopAudio()
+              setVoiceState('idle')
+              setConversation([])
+              setActiveResponse(null)
+              setShowLoader(false)
+              setTimeout(() => handleSend('hi', undefined, true), 100)
+            }}
+            title="Reset conversation"
+            style={{
+              marginLeft: 'auto',
+              background: 'var(--bg-soft)',
+              border: '1px solid var(--line-soft)',
+              borderRadius: 10,
+              cursor: 'pointer',
+              color: 'var(--ink-muted)',
+              padding: '0.4rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <RotateCcw style={{ width: 15, height: 15 }} />
+          </button>
         </div>
 
         <div
@@ -530,7 +523,6 @@ export function WorkspaceClient({
                           response={entry.response}
                           isLatest={entry.id === lastAssistantId}
                           onShowReport={() => entry.response && setActiveResponse(entry.response)}
-                          onSpeak={speakText}
                         />
                       )}
                     </div>
@@ -559,7 +551,7 @@ export function WorkspaceClient({
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isListening ? 'Listening…' : 'Ask about PA, step therapy, or coverage…'}
+              placeholder={voiceState === 'recording' ? 'Listening… tap mic to stop' : voiceState === 'transcribing' ? 'Transcribing your voice…' : 'Ask about PA, step therapy, or coverage…'}
               rows={1}
               disabled={isSubmitting}
               style={{
@@ -576,31 +568,60 @@ export function WorkspaceClient({
                 overflow: 'auto',
               }}
             />
-            {/* Mic button */}
+            {/* Voice button — single tap toggles full voice pipeline */}
             <motion.button
               type="button"
               whileTap={{ scale: 0.9 }}
-              onClick={toggleVoice}
-              title={isListening ? 'Stop listening' : 'Speak your question'}
+              onClick={handleMicClick}
+              disabled={voiceState === 'transcribing'}
+              title={
+                voiceState === 'recording' ? 'Tap to stop recording'
+                : voiceState === 'speaking' ? 'Tap to stop speaking'
+                : voiceState === 'transcribing' ? 'Transcribing…'
+                : 'Tap to speak'
+              }
               style={{
                 width: 36,
                 height: 36,
                 borderRadius: 12,
-                border: isListening ? '1.5px solid rgba(194,65,12,0.35)' : '1px solid var(--line-soft)',
+                border: voiceState === 'recording'
+                  ? '1.5px solid rgba(194,65,12,0.5)'
+                  : voiceState === 'speaking'
+                  ? '1.5px solid rgba(43,80,255,0.4)'
+                  : '1px solid var(--line-soft)',
                 flexShrink: 0,
-                background: isListening ? 'rgba(194,65,12,0.12)' : 'var(--bg-surface)',
-                color: isListening ? '#C2410C' : 'var(--ink-muted)',
-                cursor: 'pointer',
+                background: voiceState === 'recording'
+                  ? 'rgba(194,65,12,0.1)'
+                  : voiceState === 'speaking'
+                  ? 'rgba(43,80,255,0.1)'
+                  : 'var(--bg-surface)',
+                color: voiceState === 'recording'
+                  ? '#C2410C'
+                  : voiceState === 'speaking'
+                  ? '#2B50FF'
+                  : 'var(--ink-muted)',
+                cursor: voiceState === 'transcribing' ? 'default' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'all 0.15s',
               }}
             >
-              {isListening
-                ? <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 0.8 }}><MicOff style={{ width: 14, height: 14 }} /></motion.span>
-                : <Mic style={{ width: 14, height: 14 }} />
-              }
+              {voiceState === 'recording' && (
+                <motion.span animate={{ scale: [1, 1.25, 1] }} transition={{ repeat: Infinity, duration: 0.7 }}>
+                  <MicOff style={{ width: 14, height: 14 }} />
+                </motion.span>
+              )}
+              {voiceState === 'speaking' && (
+                <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ repeat: Infinity, duration: 0.8 }}>
+                  <Volume2 style={{ width: 14, height: 14 }} />
+                </motion.span>
+              )}
+              {voiceState === 'transcribing' && (
+                <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                  <Mic style={{ width: 14, height: 14 }} />
+                </motion.span>
+              )}
+              {voiceState === 'idle' && <Mic style={{ width: 14, height: 14 }} />}
             </motion.button>
             {/* Send button */}
             <motion.button
@@ -912,12 +933,11 @@ function TypingIndicator() {
   )
 }
 
-function AssistantBubble({ text, response, isLatest, onShowReport, onSpeak }: {
+function AssistantBubble({ text, response, isLatest, onShowReport }: {
   text: string
   response?: AssistantResponse
   isLatest: boolean
   onShowReport: () => void
-  onSpeak: (t: string) => void
 }) {
   if (!text) return null
   const isIndexed = response?.meta.isIndexed
@@ -952,44 +972,27 @@ function AssistantBubble({ text, response, isLatest, onShowReport, onSpeak }: {
         >
           {text}
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* Speak this reply button */}
+        {hasReport && isLatest && (
           <button
             type="button"
-            onClick={() => onSpeak(text)}
-            title="Read aloud"
+            onClick={onShowReport}
             style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontSize: 11, color: 'var(--ink-muted)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '0 0.25rem', fontFamily: 'var(--font-sans)',
+              alignSelf: 'flex-start',
+              fontSize: 12,
+              color: '#fff',
+              background: 'linear-gradient(135deg, #3d62ff, #2B50FF)',
+              border: 'none',
+              borderRadius: 9999,
+              padding: '0.35rem 0.85rem',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+              boxShadow: '0 6px 16px rgba(43,80,255,0.2)',
             }}
           >
-            <Volume2 style={{ width: 12, height: 12 }} />
-            Speak
+            Open full report →
           </button>
-          {hasReport && isLatest && (
-            <button
-              type="button"
-              onClick={onShowReport}
-              style={{
-                alignSelf: 'flex-start',
-                fontSize: 12,
-                color: '#fff',
-                background: 'linear-gradient(135deg, #3d62ff, #2B50FF)',
-                border: 'none',
-                borderRadius: 9999,
-                padding: '0.35rem 0.85rem',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                fontWeight: 600,
-                boxShadow: '0 6px 16px rgba(43,80,255,0.2)',
-              }}
-            >
-              Open full report →
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
