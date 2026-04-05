@@ -84,11 +84,12 @@
   --text-label:      13px;
   --text-mono-meta:  12px;
 
-  /* ── Dark workspace aliases (used by matrix / app pages) ────────────── */
-  /* These allow Krish's matrix page to use var(--text-primary) etc.        */
-  --text-primary:   #F1F5F9;   /* slate-100 — headings on dark bg            */
-  --text-secondary: #94A3B8;   /* slate-400 — secondary text on dark bg      */
-  --text-muted:     #64748B;   /* slate-500 — muted labels on dark bg        */
+  /* ── Semantic text aliases (used by workspace pages) ───────────────── */
+  /* Now maps to the light ink system — all pages are light theme.           */
+  --text-primary:   var(--ink-strong);   /* #111827 — headings                */
+  --text-secondary: var(--ink-body);     /* #334155 — body text               */
+  --text-muted:     var(--ink-muted);    /* #64748B — muted labels            */
+  --border-strong:  var(--line-strong);  /* #C6D4E1 — strong borders          */
 
   /* ── Easing ─────────────────────────────────────────────────────────── */
   --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);

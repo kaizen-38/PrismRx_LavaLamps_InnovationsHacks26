@@ -312,7 +312,7 @@ function LoadingSkeleton() {
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-navy-950">
+    <div style={{ minHeight: 'calc(100vh - 56px)', background: 'var(--bg-page)' }}>
       <div className="mx-auto max-w-screen-xl px-6 py-10">{children}</div>
     </div>
   )

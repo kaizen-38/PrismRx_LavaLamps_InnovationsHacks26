@@ -37,20 +37,21 @@ export const DEMO_USER: PrismUser = {
   role: DEV_ROLE,
 }
 
-// ── Role helpers ──────────────────────────────────────────────────────────────
+// ── Role capabilities ─────────────────────────────────────────────────────────
 //
-// Open-by-default model:
-//   guest       → read everything (matrix, compare, simulate, changes, sources, about)
-//   coordinator → guest + save cases, evidence pack, voice brief, share
-//   analyst     → guest + export, upload, advanced change controls, admin
+// Public routes (no login needed):
+//   matrix, compare, policy, sources, about — readable by everyone
 //
-// Auth is only required for workflow actions (save, export, upload, voice),
-// NOT for reading coverage intelligence.
+// Coordinator: + simulate (PA scenario runner), save, voice brief, evidence pack
+// Analyst:     + changes (change radar), export, upload, admin tools
+//
+// Rationale: Simulator generates synthetic PA scenarios → coordinator workflow.
+//            Change Radar surfaces payer drift intelligence → analyst workflow.
 
 const ROLE_CAPABILITIES: Record<UserRole, string[]> = {
-  guest:       ['matrix', 'compare', 'simulate', 'changes', 'sources', 'policy'],
-  analyst:     ['matrix', 'compare', 'simulate', 'changes', 'sources', 'policy', 'export', 'upload', 'admin'],
-  coordinator: ['matrix', 'compare', 'simulate', 'changes', 'sources', 'policy', 'save', 'voice', 'evidence_pack', 'share'],
+  guest:       ['matrix', 'compare', 'sources', 'policy'],
+  coordinator: ['matrix', 'compare', 'sources', 'policy', 'simulate', 'save', 'voice', 'evidence_pack', 'share'],
+  analyst:     ['matrix', 'compare', 'sources', 'policy', 'changes', 'export', 'upload', 'admin'],
 }
 
 export function hasCapability(role: UserRole, capability: string): boolean {

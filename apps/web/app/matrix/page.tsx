@@ -50,7 +50,7 @@ export default function MatrixPage() {
     : 0
 
   return (
-    <div className="min-h-screen bg-navy-950">
+    <div style={{ minHeight: 'calc(100vh - 56px)', background: 'var(--bg-page)' }}>
     <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-10 pb-20">
 
       {/* ── Page header ── */}

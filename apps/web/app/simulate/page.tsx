@@ -1,24 +1,34 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PrismRx — Policy Fit Simulator page
-// Gold path: form → run simulation → blocker cards with citations per payer.
-// Works fully on mock data; swaps to real API once backend is live.
+// PrismRx — Policy Fit Simulator page  /simulate
+// Coordinator-only: run synthetic PA scenarios across payers.
+// AccessSheet shown to guests/analysts rather than a hard redirect.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import SimulatorForm from '@/components/simulator-form'
 import BlockerCard from '@/components/blocker-card'
+import { AccessSheet } from '@/components/role-gate'
 import type { SimulationCase, SimulationResult } from '@/lib/types'
 import { runSimulation } from '@/lib/api-client'
 import { getMockSimulationResults } from '@/lib/mock-simulate'
 
-// Public page — no RouteGuard. Auth only required for save/export actions.
 export default function SimulatePage() {
   return (
     <Suspense fallback={<PageShell><LoadingSkeleton /></PageShell>}>
-      <SimulateInner />
+      <AccessSheet
+        capability="simulate"
+        returnTo="/simulate"
+        title="Policy Fit Simulator"
+        description="Run synthetic prior-auth scenarios across payers and instantly surface unmet criteria, blockers, and the fastest approvable path. Available to coordinator accounts."
+        requiredRole="coordinator"
+        fallbackHref="/matrix"
+        fallbackLabel="Continue browsing coverage matrix"
+      >
+        <SimulateInner />
+      </AccessSheet>
     </Suspense>
   )
 }
@@ -36,16 +46,12 @@ function SimulateInner() {
     setLoading(true)
     setError(null)
     setLastCase(caseData)
-
     try {
       let data = await runSimulation(caseData)
-
-      // api-client returns [] stub while backend isn't live — use richer mock
       if (!data || data.length === 0) {
-        await new Promise((r) => setTimeout(r, 900)) // realistic latency for demo
+        await new Promise(r => setTimeout(r, 900))
         data = getMockSimulationResults(caseData)
       }
-
       setResults(data)
     } catch {
       setError('Simulation failed — using cached results for demo.')
@@ -55,41 +61,41 @@ function SimulateInner() {
     }
   }
 
-  const clearResults = () => {
-    setResults(null)
-    setLastCase(null)
-    setError(null)
-  }
-
   return (
     <PageShell>
-      {/* PHI warning banner */}
-      <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-300">
-        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+      {/* PHI warning — light amber */}
+      <div
+        className="mb-6 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-xs"
+        style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
+      >
+        <svg className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
         </svg>
         <span>
-          <strong>Synthetic cases only.</strong> Do not enter real patient names, insurance IDs, dates of birth, or any identifying information.
-          PrismRx uses public payer documents and synthetic demo data only — no PHI.
+          <strong>Synthetic cases only.</strong> Do not enter real patient names, insurance IDs, or any identifying information.
+          PrismRx uses public payer documents and synthetic demo data — no PHI.
         </span>
       </div>
 
       {/* Page header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-600/20 border border-violet-700">
+          <span
+            className="flex items-center justify-center w-8 h-8 rounded-lg"
+            style={{ background: '#F5F3FF', border: '1px solid #DDD6FE' }}
+          >
             <SimIcon />
           </span>
-          <h1 className="text-2xl font-bold text-slate-100">Policy Fit Simulator</h1>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--ink-strong)' }}>Policy Fit Simulator</h1>
         </div>
-        <p className="text-sm text-slate-400 max-w-2xl">
+        <p style={{ fontSize: 14, color: 'var(--ink-muted)', maxWidth: '60ch', lineHeight: 1.6 }}>
           Enter a synthetic patient scenario to surface approval blockers, missing evidence,
           and the fastest approvable path — compared across all major payers simultaneously.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 items-start">
-        {/* Left: form (sticky on large screens) */}
+        {/* Left: form */}
         <div className="lg:sticky lg:top-20">
           <SimulatorForm
             initialDrugKey={initialDrugKey}
@@ -98,8 +104,9 @@ function SimulateInner() {
           />
           {results && !loading && (
             <button
-              onClick={clearResults}
-              className="mt-3 w-full text-xs text-slate-500 hover:text-slate-300 transition-colors py-1"
+              onClick={() => { setResults(null); setLastCase(null); setError(null) }}
+              className="mt-3 w-full text-xs py-1 transition-colors"
+              style={{ color: 'var(--ink-muted)' }}
             >
               ← Run a new simulation
             </button>
@@ -111,7 +118,10 @@ function SimulateInner() {
           {loading && <LoadingSkeleton />}
 
           {!loading && error && (
-            <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-300">
+            <div
+              className="rounded-xl border px-4 py-3 text-sm"
+              style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}
+            >
               {error}
             </div>
           )}
@@ -134,43 +144,24 @@ function SimulateInner() {
 
 // ── ResultsSummary ────────────────────────────────────────────────────────────
 
-function ResultsSummary({
-  results,
-  caseData,
-}: {
-  results: SimulationResult[]
-  caseData: SimulationCase | null
-}) {
-  const hardBlocked = results.filter((r) =>
-    r.blockers.some((b) => b.severity === 'hard'),
-  ).length
-  const clean = results.filter((r) => r.blockers.length === 0).length
-  const avgFit = Math.round(
-    results.reduce((s, r) => s + r.fit_score, 0) / results.length,
-  )
+function ResultsSummary({ results, caseData }: { results: SimulationResult[]; caseData: SimulationCase | null }) {
+  const hardBlocked = results.filter(r => r.blockers.some(b => b.severity === 'hard')).length
+  const clean = results.filter(r => r.blockers.length === 0).length
+  const avgFit = Math.round(results.reduce((s, r) => s + r.fit_score, 0) / results.length)
 
   return (
-    <div className="rounded-xl border border-navy-700 bg-navy-900 px-5 py-4 flex flex-wrap items-center gap-6">
+    <div
+      className="rounded-xl px-5 py-4 flex flex-wrap items-center gap-6"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--line-mid)' }}
+    >
       <Stat label="Payers analyzed" value={results.length} />
-      <Stat
-        label="Hard blocked"
-        value={hardBlocked}
-        color={hardBlocked > 0 ? 'text-red-400' : 'text-emerald-400'}
-      />
-      <Stat
-        label="Clean approvals"
-        value={clean}
-        color={clean > 0 ? 'text-emerald-400' : 'text-slate-400'}
-      />
-      <Stat
-        label="Avg fit score"
-        value={avgFit}
-        color={avgFit >= 70 ? 'text-emerald-400' : avgFit >= 40 ? 'text-amber-400' : 'text-red-400'}
-      />
+      <Stat label="Hard blocked" value={hardBlocked} color={hardBlocked > 0 ? '#DC2626' : '#059669'} />
+      <Stat label="Clean approvals" value={clean} color={clean > 0 ? '#059669' : 'var(--ink-muted)'} />
+      <Stat label="Avg fit score" value={avgFit} color={avgFit >= 70 ? '#059669' : avgFit >= 40 ? '#D97706' : '#DC2626'} />
       {caseData && (
         <div className="ml-auto text-right hidden md:block">
-          <p className="text-xs text-slate-400">{caseData.diagnosis}</p>
-          <p className="text-xs text-slate-600 font-mono">
+          <p style={{ fontSize: 12, color: 'var(--ink-muted)' }}>{caseData.diagnosis}</p>
+          <p style={{ fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--font-mono)' }}>
             {caseData.drug_key} · {caseData.prior_therapies.length} prior therapies
           </p>
         </div>
@@ -179,30 +170,22 @@ function ResultsSummary({
   )
 }
 
-function Stat({
-  label,
-  value,
-  color = 'text-slate-100',
-}: {
-  label: string
-  value: number
-  color?: string
-}) {
+function Stat({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
     <div>
-      <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className={`text-xl font-bold font-mono ${color}`}>{value}</p>
+      <p style={{ fontSize: 11, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{label}</p>
+      <p style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: color ?? 'var(--ink-strong)' }}>{value}</p>
     </div>
   )
 }
 
-// ── Loading skeleton ──────────────────────────────────────────────────────────
+// ── Loading / empty states ────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-xl border border-navy-700 bg-navy-900 overflow-hidden">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--line-soft)' }}>
           <div className="px-5 py-4 flex items-center justify-between">
             <div className="space-y-2 flex-1">
               <div className="shimmer h-4 w-32 rounded" />
@@ -220,48 +203,40 @@ function LoadingSkeleton() {
   )
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
 function EmptyState() {
   return (
-    <div className="rounded-xl border border-dashed border-navy-600 bg-navy-900/50 px-8 py-16 text-center">
-      <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-navy-800 flex items-center justify-center">
-        <SimIcon className="text-slate-500 w-6 h-6" />
+    <div
+      className="rounded-xl px-8 py-16 text-center"
+      style={{ border: '1px dashed var(--line-mid)', background: 'var(--bg-soft)' }}
+    >
+      <div
+        className="mx-auto mb-4 w-12 h-12 rounded-2xl flex items-center justify-center"
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--line-soft)' }}
+      >
+        <SimIcon />
       </div>
-      <h3 className="text-slate-300 font-semibold mb-1">Ready to simulate</h3>
-      <p className="text-sm text-slate-500 max-w-xs mx-auto">
+      <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-strong)', marginBottom: 6 }}>Ready to simulate</h3>
+      <p style={{ fontSize: 14, color: 'var(--ink-muted)', maxWidth: '34ch', margin: '0 auto' }}>
         Fill in the patient scenario on the left and click{' '}
-        <span className="text-cyan-500">Run Simulation</span>. Results appear
-        here — one card per payer with blockers and citations.
+        <span style={{ color: 'var(--accent-blue)', fontWeight: 500 }}>Run Simulation</span>.
+        Results appear here — one card per payer with blockers and citations.
       </p>
     </div>
   )
 }
 
-// ── Shared layout wrapper ─────────────────────────────────────────────────────
-
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-navy-950">
+    <div style={{ minHeight: 'calc(100vh - 56px)', background: 'var(--bg-page)' }}>
       <div className="mx-auto max-w-screen-xl px-6 py-10">{children}</div>
     </div>
   )
 }
 
-// ── Icon ──────────────────────────────────────────────────────────────────────
-
 function SimIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className ?? 'w-4 h-4 text-violet-400'}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.8}
+    <svg className={className ?? 'w-4 h-4'} style={{ color: '#7C3AED' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
         d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
       />
     </svg>
