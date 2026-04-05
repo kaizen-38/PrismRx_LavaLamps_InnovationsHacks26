@@ -67,13 +67,17 @@ function normalize(s: string): string {
 /** Returns the canonical payer id for a user-supplied string, or null. */
 export function normalizePayer(input: string): string | null {
   const n = normalize(input)
+  if (n.length < 2) return null
+  // Exact match first
   for (const [canonical, aliases] of Object.entries(PAYER_ALIAS_MAP)) {
     if (aliases.some(a => normalize(a) === n)) return canonical
   }
-  // Partial match fallback
-  for (const [canonical, aliases] of Object.entries(PAYER_ALIAS_MAP)) {
-    if (aliases.some(a => normalize(a).includes(n) || n.includes(normalize(a).slice(0, 4)))) {
-      return canonical
+  // Partial match fallback (only for inputs >= 4 chars to avoid false positives)
+  if (n.length >= 4) {
+    for (const [canonical, aliases] of Object.entries(PAYER_ALIAS_MAP)) {
+      if (aliases.some(a => { const an = normalize(a); return an.length >= 4 && (an.includes(n) || n.includes(an)) })) {
+        return canonical
+      }
     }
   }
   return null
@@ -82,13 +86,17 @@ export function normalizePayer(input: string): string | null {
 /** Returns the canonical drug key for a user-supplied string, or null. */
 export function normalizeDrug(input: string): string | null {
   const n = normalize(input)
+  if (n.length < 3) return null
+  // Exact match first
   for (const [canonical, aliases] of Object.entries(DRUG_ALIAS_MAP)) {
     if (aliases.some(a => normalize(a) === n)) return canonical
   }
-  // Partial match fallback
-  for (const [canonical, aliases] of Object.entries(DRUG_ALIAS_MAP)) {
-    if (aliases.some(a => normalize(a).includes(n) || n.includes(normalize(a).slice(0, 5)))) {
-      return canonical
+  // Partial match fallback (only for inputs >= 5 chars)
+  if (n.length >= 5) {
+    for (const [canonical, aliases] of Object.entries(DRUG_ALIAS_MAP)) {
+      if (aliases.some(a => { const an = normalize(a); return an.length >= 5 && (an.includes(n) || n.includes(an)) })) {
+        return canonical
+      }
     }
   }
   return null
