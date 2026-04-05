@@ -15,11 +15,13 @@ export const metadata: Metadata = {
 export default function WorkspacePage() {
   const payers = policyRepository.listSupportedPayers().map(p => ({ id: p.id, displayName: p.displayName }))
   const drugs = policyRepository.listSupportedDrugs().map(d => ({ key: d.key, displayName: d.displayName }))
+  const payerDrugMap = policyRepository.getPayerDrugMap()
 
   return (
     <WorkspaceClient
       initialPayers={payers}
       initialDrugs={drugs}
+      payerDrugMap={payerDrugMap}
     />
   )
 }

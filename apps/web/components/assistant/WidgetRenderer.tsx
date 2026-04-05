@@ -20,12 +20,14 @@ interface Props {
   onAction: (actionId: string) => void
   onIntakeSubmit: (values: { payer: string; drug: string; [k: string]: string | undefined }) => void
   onLookup: (payer: string, drug: string) => void
+  onSelectPayer: (payerName: string) => void
   onNewLookup: () => void
   supportedPayers?: Array<{ id: string; displayName: string }>
   supportedDrugs?: Array<{ key: string; displayName: string }>
+  payerDrugMap?: Record<string, string[]>
 }
 
-export function WidgetRenderer({ widget, onAction, onIntakeSubmit, onLookup, onNewLookup, supportedPayers, supportedDrugs }: Props) {
+export function WidgetRenderer({ widget, onAction, onIntakeSubmit, onLookup, onSelectPayer, onNewLookup, supportedPayers, supportedDrugs, payerDrugMap }: Props) {
   switch (widget.type) {
     case 'welcome_quick_actions':
       return <WelcomeQuickActions {...widget.props} onAction={onAction} />
@@ -37,6 +39,7 @@ export function WidgetRenderer({ widget, onAction, onIntakeSubmit, onLookup, onN
           onSubmit={onIntakeSubmit}
           supportedPayers={supportedPayers}
           supportedDrugs={supportedDrugs}
+          payerDrugMap={payerDrugMap}
         />
       )
 
@@ -68,9 +71,8 @@ export function WidgetRenderer({ widget, onAction, onIntakeSubmit, onLookup, onN
       return (
         <SupportedOptionsCard
           {...widget.props}
-          onSelect={(payer, drug) => {
-            if (payer || drug) onLookup(payer, drug)
-          }}
+          onSelectPayer={onSelectPayer}
+          onSelectDrug={(drug) => onLookup('', drug)}
         />
       )
 

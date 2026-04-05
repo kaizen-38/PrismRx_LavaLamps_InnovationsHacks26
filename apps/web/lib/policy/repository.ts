@@ -76,6 +76,12 @@ export interface PolicyRepository {
   /** All drugs in the dataset */
   listSupportedDrugs(): ResolvedDrug[]
 
+  /** Only drugs that have an indexed policy record for a given payer */
+  getDrugsForPayer(payerId: string): ResolvedDrug[]
+
+  /** Map of payerId → available drug keys (for client-side filtering) */
+  getPayerDrugMap(): Record<string, string[]>
+
   /**
    * Resolve a user-supplied payer string to a canonical payer.
    * Returns null if no match found.

@@ -5,10 +5,13 @@ import { Grid, FlaskConical } from 'lucide-react'
 import type { SupportedOptionsCardProps } from '@/lib/assistant-types'
 
 interface Props extends SupportedOptionsCardProps {
-  onSelect: (payer: string, drug: string) => void
+  /** Called when user clicks a payer — opens intake form, does NOT trigger lookup */
+  onSelectPayer: (payerName: string) => void
+  /** Called when user clicks a drug chip */
+  onSelectDrug: (drugName: string) => void
 }
 
-export function SupportedOptionsCard({ requestedPayer, requestedDrug, supportedPayers, supportedDrugs, onSelect }: Props) {
+export function SupportedOptionsCard({ requestedPayer, requestedDrug, supportedPayers, supportedDrugs, onSelectPayer, onSelectDrug }: Props) {
   return (
     <div style={{ background: 'var(--bg-surface)', borderRadius: 16, border: '1px solid var(--line-soft)', overflow: 'hidden' }}>
       <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -28,29 +31,30 @@ export function SupportedOptionsCard({ requestedPayer, requestedDrug, supportedP
               {requestedDrug && !supportedDrugs.find(d => d.displayName.toLowerCase().includes(requestedDrug.toLowerCase())) && (
                 <span>"{requestedDrug}" is not in the indexed drug dataset. </span>
               )}
-              Select a supported combination below.
+              Select a payer below to get started.
             </p>
           </div>
         )}
 
+        {/* Payers */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
             <Grid style={{ width: 12, height: 12, color: 'var(--ink-muted)' }} />
             <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink-muted)' }}>
-              Indexed Payers ({supportedPayers.length})
+              Indexed Payers — click to start
             </span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {supportedPayers.map(p => (
               <motion.button
                 key={p.id}
-                whileHover={{ background: '#ECF1FF', borderColor: '#2B50FF44' }}
+                whileHover={{ background: '#ECF1FF', borderColor: '#2B50FF44', y: -1 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => onSelect(p.displayName, '')}
+                onClick={() => onSelectPayer(p.displayName)}
                 style={{
-                  padding: '0.375rem 0.75rem', borderRadius: 9999,
+                  padding: '0.375rem 0.875rem', borderRadius: 9999,
                   border: '1px solid var(--line-mid)', background: 'var(--bg-soft)',
-                  fontSize: 12, fontWeight: 500, color: 'var(--ink-body)',
+                  fontSize: 13, fontWeight: 500, color: 'var(--ink-body)',
                   cursor: 'pointer', fontFamily: 'var(--font-sans)',
                   transition: 'all 0.15s',
                 }}
@@ -59,8 +63,12 @@ export function SupportedOptionsCard({ requestedPayer, requestedDrug, supportedP
               </motion.button>
             ))}
           </div>
+          <p style={{ margin: '0.5rem 0 0', fontSize: 11, color: 'var(--ink-faint)' }}>
+            Clicking a payer opens the intake form with available drugs pre-filtered.
+          </p>
         </div>
 
+        {/* Drugs — shown as reference only, not clickable for direct lookup */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
             <FlaskConical style={{ width: 12, height: 12, color: 'var(--ink-muted)' }} />
@@ -70,21 +78,17 @@ export function SupportedOptionsCard({ requestedPayer, requestedDrug, supportedP
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {supportedDrugs.map(d => (
-              <motion.button
+              <span
                 key={d.key}
-                whileHover={{ background: '#EAF8F4', borderColor: '#0F766E44' }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => onSelect('', d.displayName)}
                 style={{
-                  padding: '0.375rem 0.75rem', borderRadius: 9999,
-                  border: '1px solid var(--line-mid)', background: 'var(--bg-soft)',
-                  fontSize: 12, fontWeight: 500, color: 'var(--ink-body)',
-                  cursor: 'pointer', fontFamily: 'var(--font-sans)',
-                  transition: 'all 0.15s',
+                  padding: '0.25rem 0.625rem', borderRadius: 9999,
+                  border: '1px solid var(--line-soft)', background: 'var(--bg-soft)',
+                  fontSize: 12, fontWeight: 400, color: 'var(--ink-muted)',
+                  fontFamily: 'var(--font-sans)',
                 }}
               >
                 {d.displayName}
-              </motion.button>
+              </span>
             ))}
           </div>
         </div>
