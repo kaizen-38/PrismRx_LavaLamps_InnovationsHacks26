@@ -25,6 +25,10 @@ fuzzywuzzy==0.18.0
 httpx==0.25.2
 requests==2.31.0
 
+# Web search & crawling
+duckduckgo-search>=6.0.0
+# crawl4ai>=0.4.0  # requires Windows Long Paths — using httpx+BS4 fallback instead
+
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4

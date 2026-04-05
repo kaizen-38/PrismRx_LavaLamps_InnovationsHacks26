@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ..parsers.pdf_parser import ParsedDocument
 from ..schemas.policy import ExtractionResult, PolicyCitation
-from ..services.llm.gemini_client import generate_json
+from ..services.llm.bedrock_client import generate_json
 from ..core.config import get_settings
 
 _EXTRACTION_PROMPT = (Path(__file__).parent.parent / "services/llm/prompts/extraction.txt").read_text()
@@ -35,13 +35,13 @@ async def extract_policy(
             page_start=1,
             page_end=doc.page_count,
             payer_hint=payer_hint,
-            model=settings.gemini_model,
+            model=settings.bedrock_model_id,
         )
     else:
-        raw = await _extract_chunked(doc, payer_hint, settings.gemini_model)
+        raw = await _extract_chunked(doc, payer_hint, settings.bedrock_model_id)
 
     # Normalize drug names / terminology
-    raw = await _normalize(raw, settings.gemini_model)
+    raw = await _normalize(raw, settings.bedrock_model_id)
 
     # Override drug_family hint if extractor left it null
     if not raw.get("drug_family") and drug_family_hint:

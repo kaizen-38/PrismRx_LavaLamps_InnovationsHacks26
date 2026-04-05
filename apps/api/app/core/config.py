@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash"
     gemini_fallback_model: str = "gemini-2.5-pro"
 
+    # AWS Bedrock
+    aws_bearer_token_bedrock: str = ""
+    aws_region: str = "us-east-1"
+    bedrock_model_id: str = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
     # Database
     database_url: str = "sqlite+aiosqlite:///./prismrx.db"
 
