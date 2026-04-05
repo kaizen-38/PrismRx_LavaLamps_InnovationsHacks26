@@ -68,27 +68,85 @@ export interface DrugOption {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapApiPolicy(p: Record<string, any>): PolicyLookupFound {
+  return {
+    found: true,
+    policy_id:               p.id ?? '',
+    payer:                   p.payer ?? '',
+    drug_family:             p.drug_family ?? '',
+    drug_display:            p.drug_names?.[0] ?? p.drug_family ?? '',
+    drug_short:              p.drug_names?.[0] ?? '',
+    reference_product:       p.drug_names?.[0] ?? '',
+    biosimilars:             (p.drug_names ?? []).slice(1),
+    coverage_status:         p.coverage_status ?? 'unclear',
+    pa_required:             p.prior_authorization_required ?? false,
+    step_therapy_required:   (p.step_therapy_requirements ?? []).length > 0,
+    effective_date:          p.effective_date ?? '',
+    version_label:           p.policy_number ?? '',
+    friction_score:          Math.round((p.extraction_confidence ?? 0.5) * 100),
+    drug_names:              p.drug_names ?? [],
+    hcpcs_codes:             p.hcpcs_codes ?? [],
+    covered_indications:     p.covered_indications ?? [],
+    step_therapy_requirements:     p.step_therapy_requirements ?? [],
+    diagnosis_requirements:        p.diagnosis_requirements ?? [],
+    lab_or_biomarker_requirements: p.lab_or_biomarker_requirements ?? [],
+    prescriber_requirements:       p.prescriber_requirements ?? [],
+    site_of_care_restrictions:     p.site_of_care_restrictions ?? [],
+    dose_frequency_rules:          p.dose_frequency_rules ?? [],
+    reauthorization_rules:         p.reauthorization_rules ?? [],
+    preferred_product_notes:       p.preferred_product_notes ?? [],
+    exclusions:                    p.exclusions ?? [],
+    citations:                     p.citations ?? [],
+  }
+}
+
 export async function lookupPolicy(
   payer: string,
   drug: string
 ): Promise<PolicyLookupResult> {
-  const url = `${API_BASE}/api/policy?payer=${encodeURIComponent(payer)}&drug=${encodeURIComponent(drug)}`
+  const url = `${API_BASE}/api/policies?payer=${encodeURIComponent(payer)}&drug=${encodeURIComponent(drug)}`
   const res = await fetch(url, { cache: 'no-store' })
   if (!res.ok) {
     throw new Error(`Policy lookup failed: HTTP ${res.status}`)
   }
-  return res.json()
+  const data = await res.json()
+  // API returns a list — take the first match, or not-found
+  if (!Array.isArray(data) || data.length === 0) {
+    return {
+      found: false,
+      requested_payer: payer,
+      requested_drug: drug,
+      message: `No indexed policy found for ${payer} + ${drug}`,
+      available_payers: [],
+      available_drugs: [],
+    }
+  }
+  return mapApiPolicy(data[0])
 }
 
 export async function getSupportedOptions(): Promise<{
   payers: PayerOption[]
   drugs: DrugOption[]
 }> {
-  const res = await fetch(`${API_BASE}/api/policy/options`, { cache: 'no-store' })
-  if (!res.ok) {
+  try {
+    // Derive from the full policy list since there's no /options endpoint
+    const res = await fetch(`${API_BASE}/api/policies`, { cache: 'no-store' })
+    if (!res.ok) return { payers: [], drugs: [] }
+    const policies: Array<{ payer: string; drug_family: string; drug_names: string[] }> = await res.json()
+    const payerSet = new Map<string, string>()
+    const drugSet = new Map<string, string>()
+    for (const p of policies) {
+      if (p.payer) payerSet.set(p.payer.toLowerCase(), p.payer)
+      if (p.drug_family) drugSet.set(p.drug_family.toLowerCase(), p.drug_names?.[0] ?? p.drug_family)
+    }
+    return {
+      payers: Array.from(payerSet.values()).map(name => ({ id: name.toLowerCase().replace(/\s+/g, '_'), displayName: name })),
+      drugs: Array.from(drugSet.values()).map(name => ({ key: name.toLowerCase(), displayName: name })),
+    }
+  } catch {
     return { payers: [], drugs: [] }
   }
-  return res.json()
 }
 
 // ── Raw document text ─────────────────────────────────────────────────────────
