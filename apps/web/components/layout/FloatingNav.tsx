@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { LayoutGrid, ClipboardCheck, Radio } from 'lucide-react'
+import { LayoutGrid, ClipboardCheck, Radio, MessageSquare } from 'lucide-react'
 import { spring } from '@/lib/motion/presets'
 
 const NAV_LINKS = [
-  { href: '/matrix',   label: 'Coverage',    icon: LayoutGrid     },
-  { href: '/simulate', label: 'Case Review', icon: ClipboardCheck },
-  { href: '/radar',    label: 'Changes',     icon: Radio          },
+  { href: '/workspace', label: 'Workspace', icon: MessageSquare   },
+  { href: '/matrix',    label: 'Coverage',  icon: LayoutGrid      },
+  { href: '/simulate',  label: 'Case Review', icon: ClipboardCheck },
+  { href: '/radar',     label: 'Changes',   icon: Radio           },
 ]
 
 export function FloatingNav() {
@@ -99,7 +100,7 @@ export function FloatingNav() {
         <div className="h-4 w-px mx-1" style={{ background: '#E7EDF5' }} />
 
         {/* CTA */}
-        <Link href="/matrix">
+        <Link href="/workspace">
           <motion.span
             className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white cursor-pointer"
             style={{ background: '#2B50FF', fontSize: 13, letterSpacing: '-0.01em' }}
@@ -107,7 +108,7 @@ export function FloatingNav() {
             whileTap={{ scale: 0.97 }}
             transition={{ duration: 0.16 }}
           >
-            Open App
+            Workspace
           </motion.span>
         </Link>
       </nav>
