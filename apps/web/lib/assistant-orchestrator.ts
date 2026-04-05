@@ -452,16 +452,7 @@ async function runGeneralAssistant(
   drug: string | undefined,
   intent: AssistantIntent,
 ): Promise<AssistantResponse> {
-  const { payers, drugs } = await getSupportedOptions().catch(() => ({ payers: [], drugs: [] }))
-  const supportedPayersLine = payers.length ? payers.map(p => p.displayName).join(', ') : '(none listed)'
-  const supportedDrugsLine = drugs.length ? drugs.map(d => d.displayName).join(', ') : '(none listed)'
-  const userContent = buildGeneralAssistantUserContent({
-    req,
-    payer,
-    drug,
-    supportedPayersLine,
-    supportedDrugsLine,
-  })
+  const userContent = buildGeneralAssistantUserContent({ req, payer, drug })
 
   const shell: Pick<AssistantResponse, 'intent' | 'widget' | 'sideWidgets' | 'loaderStages'> = {
     intent,

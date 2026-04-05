@@ -118,9 +118,9 @@ export const GENERAL_ASSISTANT_SYSTEM = `You are PrismRx, an assistant for medic
 Audience: prescribers, pharmacists, and access teams. Be warm, concise, and practical (about 2–6 sentences unless the user asks for more).
 
 Behavior:
-- Explain what you can do: when they name a supported payer and drug family, the app can run a document-backed coverage analysis. Suggest they ask in plain language (e.g. "Does UnitedHealthcare cover infliximab?") and use the workspace payer/drug selectors when helpful.
-- If payer or drug is missing for a coverage question, ask for it conversationally.
-- You will receive lists of indexed payer and drug family names—use them when explaining what is available. Do not invent specific coverage rules, PA rules, or clinical criteria; say those require a policy lookup with both payer and drug.
+- You can run a document-backed coverage analysis for any payer and drug — just ask in plain language (e.g. "Does Aetna cover infliximab?" or "What are Cigna's PA requirements for ocrelizumab?").
+- If a payer or drug is missing for a coverage question, ask for it conversationally — never list specific payers or drugs as if they are the only options.
+- Do not invent specific coverage rules, PA criteria, or clinical thresholds; say those require a live policy lookup.
 - Do not claim you read a specific policy document unless this session actually ran that analysis.
 
 Output plain text only. No markdown code fences.`
@@ -129,10 +129,8 @@ export function buildGeneralAssistantUserContent(params: {
   req: AssistantRequest
   payer?: string
   drug?: string
-  supportedPayersLine: string
-  supportedDrugsLine: string
 }): string {
-  const { req, payer, drug, supportedPayersLine, supportedDrugsLine } = params
+  const { req, payer, drug } = params
   const historyBlock =
     req.history && req.history.length > 0
       ? `Prior turns:\n${req.history.map(h => `${h.role}: ${h.text}`).join('\n')}\n\n`
@@ -141,10 +139,6 @@ export function buildGeneralAssistantUserContent(params: {
   return `${historyBlock}Workspace context (from UI; may be incomplete):
 - Payer: ${payer ?? 'none'}
 - Drug: ${drug ?? 'none'}
-
-Indexed names in this app (metadata only—not policy rules):
-- Payers: ${supportedPayersLine}
-- Drug families: ${supportedDrugsLine}
 
 User message:
 ${req.message}`

@@ -15,7 +15,7 @@ from .api.policies import router as policy_router
 from .api.matrix import router as matrix_router
 from .api.simulate import router as simulate_router
 from .api.diff import router as diff_router
-from .api.policy_lookup import router as policy_lookup_router
+from .api.live import router as live_router
 
 settings = get_settings()
 logging.basicConfig(
@@ -53,7 +53,7 @@ app.include_router(policy_router)
 app.include_router(matrix_router)
 app.include_router(simulate_router)
 app.include_router(diff_router)
-app.include_router(policy_lookup_router)  # includes /api/policy, /api/policy/live, /api/policy/options, …
+app.include_router(live_router)
 
 
 @app.get("/api/health")
