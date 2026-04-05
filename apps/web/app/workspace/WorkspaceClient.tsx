@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Send, RotateCcw, AlertCircle } from 'lucide-react'
-import type { AssistantResponse, Widget } from '@/lib/assistant-types'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { Send, RotateCcw, AlertCircle, Sparkles, Grid3x3, Radio } from 'lucide-react'
+import type { AssistantResponse } from '@/lib/assistant-types'
 import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
-import { RequestSummaryCard } from '@/components/assistant/RequestSummaryCard'
 import { WidgetReveal } from '@/components/assistant/WidgetReveal'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -57,19 +56,78 @@ export function WorkspaceClient({
   const [activeResponse, setActiveResponse] = useState<AssistantResponse | null>(null)
   const [showLoader, setShowLoader] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeWidgetOverride, setActiveWidgetOverride] = useState<Widget | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const reduceMotion = useReducedMotion()
 
-  // Send initial greeting on mount
+  // Workspace is below the global nav; `scrollIntoView` on chat children was
+  // scrolling the document. Reset window scroll when entering this page.
   useEffect(() => {
-    handleSend('hi', undefined, true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [])
 
+  // Silent greeting on mount. Cleanup + `cancelled` drops the first Strict Mode
+  // invocation’s in-flight result so dev doesn’t double the message; a real
+  // navigation away and back remounts fresh and runs this again.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [conversation])
+    let cancelled = false
+    const entryId = Math.random().toString(36).slice(2)
+    const loadingId = `${entryId}_assistant`
+
+    setIsSubmitting(true)
+    setConversation([{ id: loadingId, role: 'assistant', text: '', isLoading: true }])
+
+    ;(async () => {
+      try {
+        const response = await sendMessage('hi', undefined)
+        if (cancelled) return
+        setConversation([
+          {
+            id: loadingId,
+            role: 'assistant',
+            text: response.assistantText,
+            response,
+            isLoading: false,
+          },
+        ])
+        if (response.loaderStages.length > 0) {
+          setShowLoader(true)
+          setActiveResponse(null)
+        } else {
+          setActiveResponse(response)
+          setShowLoader(false)
+        }
+      } catch (err) {
+        if (cancelled) return
+        const errMsg = err instanceof Error ? err.message : 'Something went wrong'
+        setConversation([
+          {
+            id: loadingId,
+            role: 'assistant',
+            text: '',
+            isLoading: false,
+            error: errMsg,
+          },
+        ])
+        setShowLoader(false)
+      } finally {
+        if (!cancelled) setIsSubmitting(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = chatScrollRef.current
+    if (!el) return
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    })
+  }, [conversation, reduceMotion])
 
   const handleSend = useCallback(async (
     message: string,
@@ -78,7 +136,6 @@ export function WorkspaceClient({
   ) => {
     if (!message.trim() || isSubmitting) return
     setIsSubmitting(true)
-    setActiveWidgetOverride(null)
 
     const entryId = Math.random().toString(36).slice(2)
 
@@ -87,14 +144,12 @@ export function WorkspaceClient({
       setInput('')
     }
 
-    // Add loading placeholder
     const loadingId = entryId + '_assistant'
     setConversation(prev => [...prev, { id: loadingId, role: 'assistant', text: '', isLoading: true }])
 
     try {
       const response = await sendMessage(message, context)
 
-      // Replace loading entry
       setConversation(prev => prev.map(e =>
         e.id === loadingId
           ? { id: loadingId, role: 'assistant', text: response.assistantText, response, isLoading: false }
@@ -169,200 +224,546 @@ export function WorkspaceClient({
 
   const latestLoaderStages = conversation.findLast(e => e.response?.loaderStages.length)?.response?.loaderStages ?? []
   const displayResponse = activeResponse
-  const displayWidget = activeWidgetOverride ?? displayResponse?.widget ?? null
+  const displayWidget = displayResponse?.widget ?? null
+
+  const lastAssistantId = useMemo(
+    () => conversation.findLast(e => e.role === 'assistant')?.id,
+    [conversation]
+  )
+
+  const deckSubtitle = useMemo(() => {
+    if (showLoader) return 'Tracing sources · extracting criteria'
+    const m = displayResponse?.meta
+    if (m?.resolvedPayer && m?.resolvedDrug) {
+      return `${m.resolvedPayer} · ${m.resolvedDrug}`
+    }
+    return `${initialPayers.length} payers · ${initialDrugs.length} drug families indexed`
+  }, [showLoader, displayResponse?.meta, initialPayers.length, initialDrugs.length])
+
+  const deckBadge = useMemo(() => {
+    if (showLoader) return { label: 'Working', tone: 'pulse' as const }
+    const src = displayResponse?.meta?.dataSource
+    if (src === 'live_web') return { label: 'Live web + extract', tone: 'live' as const }
+    if (src === 'manual_indexed') return { label: 'Indexed corpus', tone: 'idx' as const }
+    return { label: 'Ready', tone: 'idle' as const }
+  }, [showLoader, displayResponse?.meta?.dataSource])
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-canvas)', fontFamily: 'var(--font-sans)' }}>
-      {/* ── LEFT PANE: conversation ─────────────────────────────────────── */}
-      <div style={{
-        width: 'clamp(320px, 42%, 520px)',
-        display: 'flex', flexDirection: 'column',
-        borderRight: '1px solid var(--line-soft)',
-        background: 'var(--bg-surface)',
-        flexShrink: 0,
-      }}>
-        {/* Header */}
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--accent-blue-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
-              <polygon points="9,1.5 16.5,15.5 1.5,15.5" fill="none" stroke="#2B50FF" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.01em' }}>Policy Workspace</p>
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--ink-muted)' }}>Indexed data + live web policy search · {initialPayers.length} payers · {initialDrugs.length} drugs in index</p>
+    <div
+      data-workspace-page
+      className="paper-texture"
+      style={{
+        display: 'flex',
+        height: '100dvh',
+        maxHeight: '100dvh',
+        background: 'var(--bg-canvas)',
+        fontFamily: 'var(--font-sans)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── LEFT: conversation stream ───────────────────────────────────── */}
+      <div
+        style={{
+          width: 'clamp(300px, 38%, 480px)',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRight: '1px solid var(--line-soft)',
+          background: 'linear-gradient(180deg, var(--bg-surface) 0%, rgba(255,255,255,0.92) 100%)',
+          flexShrink: 0,
+          boxShadow: '4px 0 32px rgba(15, 23, 42, 0.04)',
+        }}
+      >
+        <div
+          style={{
+            padding: '1rem 1.25rem',
+            borderBottom: '1px solid var(--line-soft)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            background: 'linear-gradient(135deg, rgba(43,80,255,0.04) 0%, transparent 55%)',
+          }}
+        >
+          <motion.div
+            animate={reduceMotion ? {} : { rotate: [0, 6, -6, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              background: 'linear-gradient(135deg, #2B50FF 0%, #5B7CFF 45%, #0F766E 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(43, 80, 255, 0.28)',
+            }}
+          >
+            <Sparkles style={{ width: 18, height: 18, color: '#fff' }} strokeWidth={2} />
+          </motion.div>
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 700,
+                color: 'var(--ink-strong)',
+                letterSpacing: '-0.02em',
+                fontFamily: 'var(--font-serif)',
+              }}
+            >
+              PrismRx Copilot
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ink-muted)', lineHeight: 1.35 }}>
+              Document-grounded answers · indexed + live policy pull
+            </p>
           </div>
           <button
-            onClick={() => { setConversation([]); setActiveResponse(null); setShowLoader(false); setTimeout(() => handleSend('hi', undefined, true), 100) }}
+            type="button"
+            onClick={() => {
+              setConversation([])
+              setActiveResponse(null)
+              setShowLoader(false)
+              setTimeout(() => handleSend('hi', undefined, true), 100)
+            }}
             title="Reset conversation"
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)', padding: '0.25rem' }}
+            style={{
+              marginLeft: 'auto',
+              background: 'var(--bg-soft)',
+              border: '1px solid var(--line-soft)',
+              borderRadius: 10,
+              cursor: 'pointer',
+              color: 'var(--ink-muted)',
+              padding: '0.4rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <RotateCcw style={{ width: 14, height: 14 }} />
+            <RotateCcw style={{ width: 15, height: 15 }} />
           </button>
         </div>
 
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <AnimatePresence initial={false}>
-            {conversation.map(entry => (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-                style={{ display: 'flex', justifyContent: entry.role === 'user' ? 'flex-end' : 'flex-start' }}
-              >
-                {entry.role === 'user' ? (
-                  <div style={{
-                    maxWidth: '80%', padding: '0.625rem 0.875rem',
-                    background: '#2B50FF', color: '#fff', borderRadius: '14px 14px 4px 14px',
-                    fontSize: 13, lineHeight: 1.5,
-                  }}>
-                    {entry.text}
-                  </div>
-                ) : (
-                  <div style={{ maxWidth: '90%', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                    {entry.isLoading ? (
-                      <TypingIndicator />
-                    ) : entry.error ? (
-                      <ErrorBubble message={entry.error} onRetry={() => {
-                        const lastUser = conversation.findLast(e => e.role === 'user')
-                        if (lastUser) handleSend(lastUser.text)
-                      }} />
-                    ) : (
-                      <AssistantBubble
-                        text={entry.text}
-                        response={entry.response}
-                        isLatest={entry === conversation.findLast(e => e.role === 'assistant')}
-                        onShowReport={() => entry.response && setActiveResponse(entry.response)}
-                      />
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          <div ref={messagesEndRef} />
+        <div
+          ref={chatScrollRef}
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '1rem 1rem 1rem 1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.25rem',
+          }}
+        >
+          <div style={{ position: 'relative', paddingLeft: 14 }}>
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: 5,
+                top: 8,
+                bottom: 8,
+                width: 2,
+                borderRadius: 2,
+                background: 'linear-gradient(180deg, rgba(43,80,255,0.35) 0%, rgba(15,118,110,0.25) 50%, rgba(43,80,255,0.12) 100%)',
+              }}
+            />
+            <AnimatePresence initial={false}>
+              {conversation.map((entry, idx) => (
+                <motion.div
+                  key={entry.id}
+                  initial={{ opacity: 0, x: entry.role === 'user' ? 12 : -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                  style={{
+                    display: 'flex',
+                    justifyContent: entry.role === 'user' ? 'flex-end' : 'flex-start',
+                    marginBottom: idx === conversation.length - 1 ? 4 : 14,
+                    position: 'relative',
+                  }}
+                >
+                  {entry.role === 'user' ? (
+                    <div
+                      style={{
+                        maxWidth: '88%',
+                        padding: '0.65rem 1rem',
+                        background: 'linear-gradient(135deg, #3d62ff 0%, #2B50FF 42%, #2340d8 100%)',
+                        color: '#fff',
+                        borderRadius: '18px 18px 6px 18px',
+                        fontSize: 13,
+                        lineHeight: 1.55,
+                        boxShadow: '0 10px 28px rgba(43, 80, 255, 0.22)',
+                      }}
+                    >
+                      {entry.text}
+                    </div>
+                  ) : (
+                    <div style={{ maxWidth: '100%', paddingLeft: 6, width: '100%' }}>
+                      {entry.isLoading ? (
+                        <TypingIndicator />
+                      ) : entry.error ? (
+                        <ErrorBubble
+                          message={entry.error}
+                          onRetry={() => {
+                            const lastUser = conversation.findLast(e => e.role === 'user')
+                            if (lastUser) handleSend(lastUser.text)
+                          }}
+                        />
+                      ) : (
+                        <AssistantBubble
+                          text={entry.text}
+                          response={entry.response}
+                          isLatest={entry.id === lastAssistantId}
+                          onShowReport={() => entry.response && setActiveResponse(entry.response)}
+                        />
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
 
-        {/* Input */}
-        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--line-soft)' }}>
-          <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-end', background: 'var(--bg-soft)', borderRadius: 14, border: '1px solid var(--line-mid)', padding: '0.625rem' }}>
+        <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--line-soft)', background: 'var(--bg-surface)' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.5rem',
+              alignItems: 'flex-end',
+              background: 'var(--bg-soft)',
+              borderRadius: 16,
+              border: '1px solid var(--line-mid)',
+              padding: '0.5rem 0.6rem',
+              boxShadow: '0 2px 12px rgba(15, 23, 42, 0.04)',
+            }}
+          >
             <textarea
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about coverage (e.g. Does Aetna cover vedolizumab?)…"
+              placeholder="Ask about PA, step therapy, or coverage…"
               rows={1}
               disabled={isSubmitting}
               style={{
-                flex: 1, background: 'none', border: 'none', outline: 'none',
-                fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--ink-strong)',
-                resize: 'none', lineHeight: 1.5, maxHeight: 120, overflow: 'auto',
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                outline: 'none',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 13,
+                color: 'var(--ink-strong)',
+                resize: 'none',
+                lineHeight: 1.5,
+                maxHeight: 120,
+                overflow: 'auto',
               }}
             />
             <motion.button
-              whileTap={{ scale: 0.92 }}
+              type="button"
+              whileTap={{ scale: 0.94 }}
               onClick={() => handleSend(input)}
               disabled={!input.trim() || isSubmitting}
               style={{
-                width: 32, height: 32, borderRadius: 9, border: 'none', flexShrink: 0,
-                background: input.trim() && !isSubmitting ? '#2B50FF' : 'var(--line-mid)',
-                color: '#fff', cursor: input.trim() && !isSubmitting ? 'pointer' : 'default',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.15s',
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                border: 'none',
+                flexShrink: 0,
+                background: input.trim() && !isSubmitting
+                  ? 'linear-gradient(135deg, #3d62ff, #2B50FF)'
+                  : 'var(--line-mid)',
+                color: '#fff',
+                cursor: input.trim() && !isSubmitting ? 'pointer' : 'default',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: input.trim() && !isSubmitting ? '0 6px 18px rgba(43,80,255,0.25)' : 'none',
               }}
             >
-              <Send style={{ width: 13, height: 13 }} />
+              <Send style={{ width: 15, height: 15 }} />
             </motion.button>
           </div>
-          <p style={{ margin: '0.5rem 0 0', fontSize: 10, color: 'var(--ink-faint)', textAlign: 'center' }}>
-            Footer reflects each reply: indexed snapshot vs live-fetched document (see chip under the last answer)
-          </p>
         </div>
       </div>
 
-      {/* ── RIGHT PANE: widgets ─────────────────────────────────────────── */}
+      {/* ── RIGHT: insight deck ─────────────────────────────────────────── */}
       <div
         role="region"
-        aria-label="Coverage report panel"
+        aria-label="Coverage intelligence deck"
         aria-busy={showLoader}
-        style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}
+        style={{
+          flex: 1,
+          position: 'relative',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
       >
-        <AnimatePresence mode="wait">
-          {showLoader ? (
-            <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <StagedLoader stages={latestLoaderStages} onComplete={handleLoaderComplete} />
-            </motion.div>
-          ) : displayWidget ? (
-            <motion.div key="widgets" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              {/* Request summary if applicable */}
-              {displayResponse?.meta.resolvedPayer && displayResponse?.meta.resolvedDrug && (
-                <WidgetReveal delay={0} style={{ marginBottom: '1rem' }}>
-                  <RequestSummaryCard
-                    resolvedPayer={displayResponse.meta.resolvedPayer}
-                    resolvedDrug={displayResponse.meta.resolvedDrug}
-                    matchConfidence={displayResponse.meta.isIndexed ? 'exact' : 'unindexed'}
-                    originalQuery={conversation.findLast(e => e.role === 'user')?.text ?? ''}
-                  />
-                </WidgetReveal>
+        <div className="workspace-deck-mesh" aria-hidden />
+        <div className="workspace-deck-grid" aria-hidden />
+
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            padding: '1rem 1.25rem',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              marginBottom: '0.85rem',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', minWidth: 0 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.85)',
+                  border: '1px solid var(--line-soft)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'var(--shadow-xs)',
+                }}
+              >
+                <Grid3x3 style={{ width: 20, height: 20, color: 'var(--accent-blue)' }} strokeWidth={2} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: 'var(--accent-blue)',
+                  }}
+                >
+                  Intelligence deck
+                </p>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: 'var(--ink-strong)',
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {deckSubtitle}
+                </p>
+              </div>
+            </div>
+            <DeckBadge badge={deckBadge} reduceMotion={Boolean(reduceMotion)} />
+          </div>
+
+          <div
+            className="workspace-deck-glass"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              padding: '1rem 1.1rem',
+            }}
+          >
+            <AnimatePresence mode="wait">
+              {showLoader ? (
+                <motion.div
+                  key="loader"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}
+                  style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+                >
+                  <StagedLoader stages={latestLoaderStages} onComplete={handleLoaderComplete} />
+                </motion.div>
+              ) : displayWidget ? (
+                <motion.div
+                  key="widgets"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <WidgetReveal delay={0} style={{ marginBottom: 2 }}>
+                    <WidgetRenderer
+                      widget={displayWidget}
+                      onAction={handleAction}
+                      onIntakeSubmit={handleIntakeSubmit}
+                      onLookup={handleLookup}
+                      onNewLookup={() => handleAction('check_coverage')}
+                      supportedPayers={initialPayers}
+                      supportedDrugs={initialDrugs}
+                    />
+                  </WidgetReveal>
+
+                  {displayResponse?.sideWidgets.map((w, i) => (
+                    <WidgetReveal key={i} delay={0.06 + i * 0.06} style={{ marginBottom: 2 }}>
+                      <WidgetRenderer
+                        widget={w}
+                        onAction={handleAction}
+                        onIntakeSubmit={handleIntakeSubmit}
+                        onLookup={handleLookup}
+                        onNewLookup={() => handleAction('check_coverage')}
+                        supportedPayers={initialPayers}
+                        supportedDrugs={initialDrugs}
+                      />
+                    </WidgetReveal>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    padding: '2rem 1.5rem',
+                    minHeight: 200,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 22,
+                      background: 'linear-gradient(135deg, rgba(43,80,255,0.12), rgba(15,118,110,0.1))',
+                      border: '1px solid rgba(43,80,255,0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '1rem',
+                    }}
+                  >
+                    <Radio style={{ width: 28, height: 28, color: 'var(--accent-blue)' }} strokeWidth={1.75} />
+                  </div>
+                  <p
+                    className="text-gradient-accent"
+                    style={{
+                      margin: 0,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      fontFamily: 'var(--font-serif)',
+                    }}
+                  >
+                    Awaiting your next question
+                  </p>
+                  <p style={{ margin: '0.5rem 0 0', fontSize: 13, color: 'var(--ink-muted)', maxWidth: 280, lineHeight: 1.5 }}>
+                    Coverage widgets, evidence, and criteria render here as soon as the assistant resolves payer + drug.
+                  </p>
+                </motion.div>
               )}
-
-              {/* Primary widget */}
-              <WidgetReveal delay={0.05} style={{ marginBottom: '1rem' }}>
-                <WidgetRenderer
-                  widget={displayWidget}
-                  onAction={handleAction}
-                  onIntakeSubmit={handleIntakeSubmit}
-                  onLookup={handleLookup}
-                  onNewLookup={() => handleAction('check_coverage')}
-                  supportedPayers={initialPayers}
-                  supportedDrugs={initialDrugs}
-                />
-              </WidgetReveal>
-
-              {/* Side widgets — progressively revealed */}
-              {displayResponse?.sideWidgets.map((w, i) => (
-                <WidgetReveal key={i} delay={0.08 + i * 0.07} style={{ marginBottom: '0.875rem' }}>
-                  <WidgetRenderer
-                    widget={w}
-                    onAction={handleAction}
-                    onIntakeSubmit={handleIntakeSubmit}
-                    onLookup={handleLookup}
-                    onNewLookup={() => handleAction('check_coverage')}
-                    supportedPayers={initialPayers}
-                    supportedDrugs={initialDrugs}
-                  />
-                </WidgetReveal>
-              ))}
-            </motion.div>
-          ) : (
-            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 300 }}>
-              <p style={{ fontSize: 14, color: 'var(--ink-faint)', textAlign: 'center' }}>
-                Results will appear here
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-// ── Small sub-components ──────────────────────────────────────────────────────
+// ── Deck status pill ───────────────────────────────────────────────────────────
+
+function DeckBadge({ badge, reduceMotion }: { badge: { label: string; tone: 'pulse' | 'live' | 'idx' | 'idle' }; reduceMotion: boolean }) {
+  const colors = {
+    pulse: { bg: 'rgba(43,80,255,0.12)', border: 'rgba(43,80,255,0.25)', fg: 'var(--accent-blue)' },
+    live: { bg: 'rgba(15,118,110,0.12)', border: 'rgba(15,118,110,0.28)', fg: 'var(--accent-teal)' },
+    idx: { bg: 'rgba(43,80,255,0.08)', border: 'var(--line-mid)', fg: 'var(--ink-body)' },
+    idle: { bg: 'var(--bg-soft)', border: 'var(--line-soft)', fg: 'var(--ink-muted)' },
+  }
+  const c = colors[badge.tone]
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        borderRadius: 9999,
+        background: c.bg,
+        border: `1px solid ${c.border}`,
+        fontSize: 11,
+        fontWeight: 600,
+        color: c.fg,
+        flexShrink: 0,
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.02em',
+      }}
+    >
+      {badge.tone === 'pulse' && (
+        <motion.span
+          animate={reduceMotion ? {} : { opacity: [1, 0.35, 1], scale: [1, 0.92, 1] }}
+          transition={{ duration: 1.2, repeat: Infinity }}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: 'var(--accent-blue)',
+          }}
+        />
+      )}
+      {badge.label}
+    </div>
+  )
+}
+
+// ── Chat sub-components ───────────────────────────────────────────────────────
 
 function TypingIndicator() {
   return (
-    <div style={{ display: 'flex', gap: 4, padding: '0.625rem 0.875rem', background: 'var(--bg-soft)', borderRadius: '14px 14px 14px 4px', width: 'fit-content' }}>
-      {[0, 1, 2].map(i => (
-        <motion.div
-          key={i}
-          style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-faint)' }}
-          animate={{ y: [0, -4, 0] }}
-          transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
-        />
-      ))}
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '0.65rem 0.9rem',
+        background: 'var(--bg-soft)',
+        borderRadius: '16px 16px 16px 6px',
+        border: '1px solid var(--line-soft)',
+        width: 'fit-content',
+        maxWidth: '100%',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 5 }}>
+        {[0, 1, 2].map(i => (
+          <motion.div
+            key={i}
+            style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-blue)' }}
+            animate={{ y: [0, -5, 0], opacity: [0.35, 1, 0.35] }}
+            transition={{ repeat: Infinity, duration: 0.75, delay: i * 0.12 }}
+          />
+        ))}
+      </div>
+      <span style={{ fontSize: 11, color: 'var(--ink-muted)', fontWeight: 500 }}>Thinking with your policies…</span>
     </div>
   )
 }
@@ -378,53 +779,124 @@ function AssistantBubble({ text, response, isLatest, onShowReport }: {
   const hasReport = isIndexed && response?.widget?.type === 'coverage_report_hero'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <div style={{
-        padding: '0.75rem 0.875rem', background: 'var(--bg-soft)',
-        borderRadius: '14px 14px 14px 4px', fontSize: 13, color: 'var(--ink-body)', lineHeight: 1.6,
-        border: '1px solid var(--line-soft)',
-      }}>
-        {text}
-      </div>
-      {hasReport && isLatest && (
-        <button
-          onClick={onShowReport}
+    <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', maxWidth: '100%' }}>
+      <div
+        aria-hidden
+        style={{
+          width: 3,
+          borderRadius: 3,
+          flexShrink: 0,
+          background: 'linear-gradient(180deg, var(--accent-blue) 0%, var(--accent-teal) 100%)',
+          opacity: 0.85,
+          marginTop: 4,
+          marginBottom: 4,
+        }}
+      />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
           style={{
-            alignSelf: 'flex-start', fontSize: 12, color: '#2B50FF',
-            background: 'var(--accent-blue-soft)', border: 'none',
-            borderRadius: 9999, padding: '0.25rem 0.75rem',
-            cursor: 'pointer', fontFamily: 'var(--font-sans)', fontWeight: 500,
+            padding: '0.7rem 0.95rem',
+            background: 'var(--bg-surface)',
+            borderRadius: '16px 16px 16px 6px',
+            fontSize: 13,
+            color: 'var(--ink-body)',
+            lineHeight: 1.6,
+            border: '1px solid var(--line-soft)',
+            boxShadow: 'var(--shadow-xs)',
           }}
         >
-          View full report →
-        </button>
-      )}
-      {response?.meta && (
-        <p style={{ margin: 0, fontSize: 10, color: 'var(--ink-faint)' }}>
-          {response.meta.dataSource === 'manual_indexed' ? 'Indexed policy snapshot' : 'Live data'} · {response.meta.modelUsed === 'bedrock' ? 'Bedrock' : 'Template'}
-        </p>
-      )}
+          {text}
+        </div>
+        {hasReport && isLatest && (
+          <button
+            type="button"
+            onClick={onShowReport}
+            style={{
+              alignSelf: 'flex-start',
+              fontSize: 12,
+              color: '#fff',
+              background: 'linear-gradient(135deg, #3d62ff, #2B50FF)',
+              border: 'none',
+              borderRadius: 9999,
+              padding: '0.35rem 0.85rem',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+              boxShadow: '0 6px 16px rgba(43,80,255,0.2)',
+            }}
+          >
+            Open full report →
+          </button>
+        )}
+        {response?.meta && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--ink-faint)',
+              }}
+            >
+              Source
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                padding: '3px 8px',
+                borderRadius: 9999,
+                background: response.meta.dataSource === 'manual_indexed' ? 'var(--accent-blue-soft)' : 'rgba(15,118,110,0.12)',
+                color: response.meta.dataSource === 'manual_indexed' ? 'var(--accent-blue)' : 'var(--accent-teal)',
+                fontWeight: 600,
+              }}
+            >
+              {response.meta.dataSource === 'manual_indexed' ? 'Indexed snapshot' : 'Live extraction'}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>
+              {response.meta.modelUsed === 'bedrock' ? 'Claude (Bedrock)' : 'Structured fallback'}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 function ErrorBubble({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div style={{
-      padding: '0.75rem 0.875rem', background: '#FFF1EB',
-      borderRadius: 12, border: '1px solid #C2410C22',
-      display: 'flex', flexDirection: 'column', gap: '0.5rem',
-    }}>
+    <div
+      style={{
+        padding: '0.75rem 0.9rem',
+        background: 'var(--accent-coral-soft)',
+        borderRadius: 14,
+        border: '1px solid rgba(194, 65, 12, 0.2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <AlertCircle style={{ width: 13, height: 13, color: '#C2410C' }} />
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#C2410C' }}>Request failed</span>
+        <AlertCircle style={{ width: 14, height: 14, color: 'var(--accent-coral)' }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-coral)' }}>Something broke</span>
       </div>
       <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-body)' }}>{message}</p>
       <button
+        type="button"
         onClick={onRetry}
-        style={{ alignSelf: 'flex-start', fontSize: 12, color: '#C2410C', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontWeight: 500, textDecoration: 'underline' }}
+        style={{
+          alignSelf: 'flex-start',
+          fontSize: 12,
+          color: 'var(--accent-coral)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontFamily: 'var(--font-sans)',
+          fontWeight: 600,
+          textDecoration: 'underline',
+        }}
       >
-        Try again
+        Retry last message
       </button>
     </div>
   )
