@@ -19,6 +19,9 @@ export type WidgetType =
   | 'related_actions'
   | 'supported_options_card'
   | 'limitation_notice'
+  | 'site_of_care'
+  | 'preferred_alternative'
+  | 'mini_comparison'
 
 // ── Individual widget prop shapes ─────────────────────────────────────────────
 
@@ -97,6 +100,22 @@ export interface LimitationNoticeProps {
   datasetNote?: string
 }
 
+export interface SiteOfCareProps {
+  siteOfCare: string
+}
+
+export interface PreferredAlternativeProps {
+  preferredProduct: string | null
+  nonPreferredProduct: string | null
+  biosimilars: string[]
+  note?: string | null
+}
+
+export interface MiniComparisonProps {
+  drugDisplay: string
+  combinations: RelatedCombination[]
+}
+
 // ── Discriminated union of all widgets ───────────────────────────────────────
 
 export type Widget =
@@ -110,6 +129,9 @@ export type Widget =
   | { type: 'related_actions'; props: RelatedActionsProps }
   | { type: 'supported_options_card'; props: SupportedOptionsCardProps }
   | { type: 'limitation_notice'; props: LimitationNoticeProps }
+  | { type: 'site_of_care'; props: SiteOfCareProps }
+  | { type: 'preferred_alternative'; props: PreferredAlternativeProps }
+  | { type: 'mini_comparison'; props: MiniComparisonProps }
 
 // ── Loader stage ──────────────────────────────────────────────────────────────
 
