@@ -28,6 +28,19 @@ function sse(obj: unknown): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`)
 }
 
+/** Stream a hardcoded string word-by-word to simulate typing. */
+async function* fakeStream(text: string): AsyncGenerator<string> {
+  // Split into words preserving spaces, punctuation stays attached
+  const tokens = text.split(/(\s+)/)
+  for (const token of tokens) {
+    if (!token) continue
+    yield token
+    // Variable delay: shorter for spaces, longer after punctuation
+    const delay = /[.!?]$/.test(token.trim()) ? 55 : token.trim() === '' ? 10 : 28
+    await new Promise(r => setTimeout(r, delay))
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: AssistantRequest
 
@@ -83,12 +96,16 @@ export async function POST(req: NextRequest) {
           modelUsed = 'bedrock'
         } catch (err) {
           console.error('[assistant/respond] Bedrock stream error:', err instanceof Error ? err.message : err)
-          // Fall through to emit fallback text
-          controller.enqueue(sse({ type: 'text_delta', text: plan.fallbackText }))
+          // Bedrock failed — fake-stream fallback text
+          for await (const token of fakeStream(plan.fallbackText)) {
+            controller.enqueue(sse({ type: 'text_delta', text: token }))
+          }
         }
       } else {
-        // No Bedrock or no prompt — emit fallback as a single chunk
-        controller.enqueue(sse({ type: 'text_delta', text: plan.fallbackText }))
+        // No Bedrock / no prompt — fake-stream the fallback text word by word
+        for await (const token of fakeStream(plan.fallbackText)) {
+          controller.enqueue(sse({ type: 'text_delta', text: token }))
+        }
       }
 
       // 3. Done

@@ -101,9 +101,11 @@ async function streamAssistant(
 export function WorkspaceClient({
   initialPayers,
   initialDrugs,
+  payerDrugMap,
 }: {
   initialPayers: Array<{ id: string; displayName: string }>
   initialDrugs: Array<{ key: string; displayName: string }>
+  payerDrugMap: Record<string, string[]>
 }) {
   const [conversation, setConversation] = useState<ConversationEntry[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -213,8 +215,13 @@ export function WorkspaceClient({
 
   const handleLookup = useCallback((payer: string, drug: string) => {
     if (payer && drug) handleSend(`Check indexed coverage for ${drug} under ${payer}`, { payer, drug })
-    else if (payer) handleSend(`Show coverage options for ${payer}`, { payer })
     else if (drug) handleSend(`Show payer options for ${drug}`, { drug })
+    // payer-only: use handleSelectPayer instead
+  }, [handleSend])
+
+  // Opens the intake form prefilled with the selected payer — does NOT trigger a lookup
+  const handleSelectPayer = useCallback((payerName: string) => {
+    handleSend(`I want to check coverage under ${payerName}`, { payer: payerName })
   }, [handleSend])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -351,9 +358,11 @@ export function WorkspaceClient({
                   onAction={handleAction}
                   onIntakeSubmit={handleIntakeSubmit}
                   onLookup={handleLookup}
+                  onSelectPayer={handleSelectPayer}
                   onNewLookup={() => handleAction('check_coverage')}
                   supportedPayers={initialPayers}
                   supportedDrugs={initialDrugs}
+                  payerDrugMap={payerDrugMap}
                 />
               </WidgetReveal>
 
@@ -365,9 +374,11 @@ export function WorkspaceClient({
                     onAction={handleAction}
                     onIntakeSubmit={handleIntakeSubmit}
                     onLookup={handleLookup}
+                    onSelectPayer={handleSelectPayer}
                     onNewLookup={() => handleAction('check_coverage')}
                     supportedPayers={initialPayers}
                     supportedDrugs={initialDrugs}
+                    payerDrugMap={payerDrugMap}
                   />
                 </WidgetReveal>
               ))}

@@ -137,6 +137,27 @@ export class ManualPolicyRepository implements PolicyRepository {
     return policy ? toEvidence(policy) : []
   }
 
+  getDrugsForPayer(payerId: string): ResolvedDrug[] {
+    const seen = new Set<string>()
+    const drugKeys = MOCK_POLICIES
+      .filter(p => p.payer_id === payerId)
+      .map(p => p.canonical_drug_key)
+      .filter(k => { if (seen.has(k)) return false; seen.add(k); return true })
+    return drugKeys
+      .map(key => RESOLVED_DRUGS.find(d => d.key === key))
+      .filter((d): d is ResolvedDrug => d !== undefined)
+  }
+
+  getPayerDrugMap(): Record<string, string[]> {
+    const map: Record<string, string[]> = {}
+    for (const payer of RESOLVED_PAYERS) {
+      map[payer.id] = MOCK_POLICIES
+        .filter(p => p.payer_id === payer.id)
+        .map(p => p.canonical_drug_key)
+    }
+    return map
+  }
+
   getRelatedCombinations(payerId: string, drugKey: string): RelatedCombination[] {
     return MOCK_POLICIES
       .filter(p => (p.payer_id === payerId || p.canonical_drug_key === drugKey)

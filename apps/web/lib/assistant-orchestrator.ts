@@ -49,21 +49,21 @@ function detectIntent(message: string, context: AssistantRequest['context']): As
 
 function buildIndexedLoaderStages(payer: string, drug: string): LoaderStage[] {
   return [
-    { id: 'understand', label: 'Understanding your request…', durationMs: 600 },
-    { id: 'normalize', label: `Normalizing "${payer}" and "${drug}" to indexed identifiers…`, durationMs: 700 },
-    { id: 'match', label: 'Matching against indexed policy records…', durationMs: 800 },
-    { id: 'version', label: 'Looking for best available indexed policy snapshot…', durationMs: 600 },
-    { id: 'criteria', label: 'Reading coverage criteria and restrictions…', durationMs: 900 },
-    { id: 'assemble', label: 'Assembling evidence-backed summary…', durationMs: 700 },
-    { id: 'report', label: 'Preparing interactive report…', durationMs: 400 },
+    { id: 'resolve',    label: `Resolving ${payer} payer contract records…`,            durationMs: 700  },
+    { id: 'fetch',      label: `Fetching latest indexed policy documents for ${drug}…`, durationMs: 1100 },
+    { id: 'parse',      label: 'Parsing prior authorization criteria and step therapy…', durationMs: 900  },
+    { id: 'index',      label: 'Indexing site-of-care restrictions and billing codes…',  durationMs: 800  },
+    { id: 'evidence',   label: 'Pulling evidence citations from source policy text…',    durationMs: 950  },
+    { id: 'insights',   label: 'Getting coverage insights and access burden signals…',   durationMs: 850  },
+    { id: 'compile',    label: 'Compiling interactive report…',                          durationMs: 500  },
   ]
 }
 
 function buildGracefulLoaderStages(): LoaderStage[] {
   return [
-    { id: 'understand', label: 'Understanding your request…', durationMs: 500 },
-    { id: 'search', label: 'Searching indexed policy dataset…', durationMs: 700 },
-    { id: 'notfound', label: 'Checking for partial matches and suggestions…', durationMs: 500 },
+    { id: 'resolve',  label: 'Checking payer and drug identifiers…',          durationMs: 600 },
+    { id: 'search',   label: 'Searching indexed policy dataset…',             durationMs: 800 },
+    { id: 'suggest',  label: 'Finding closest available indexed options…',    durationMs: 600 },
   ]
 }
 

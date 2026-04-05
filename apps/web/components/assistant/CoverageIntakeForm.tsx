@@ -15,9 +15,14 @@ interface Props extends CoverageIntakeFormProps {
   }) => void
   supportedPayers?: Array<{ id: string; displayName: string }>
   supportedDrugs?: Array<{ key: string; displayName: string }>
+  /** payerId → drug keys available for that payer */
+  payerDrugMap?: Record<string, string[]>
 }
 
-export function CoverageIntakeForm({ prefillPayer, prefillDrug, prefillDiagnosis, onSubmit, supportedPayers = [], supportedDrugs = [] }: Props) {
+export function CoverageIntakeForm({
+  prefillPayer, prefillDrug, prefillDiagnosis,
+  onSubmit, supportedPayers = [], supportedDrugs = [], payerDrugMap = {}
+}: Props) {
   const [payer, setPayer] = useState(prefillPayer ?? '')
   const [drug, setDrug] = useState(prefillDrug ?? '')
   const [diagnosis, setDiagnosis] = useState(prefillDiagnosis ?? '')
@@ -31,25 +36,52 @@ export function CoverageIntakeForm({ prefillPayer, prefillDrug, prefillDiagnosis
   useEffect(() => { if (prefillPayer) setPayer(prefillPayer) }, [prefillPayer])
   useEffect(() => { if (prefillDrug) setDrug(prefillDrug) }, [prefillDrug])
 
+  // When payer changes, clear drug if it's no longer available for this payer
+  useEffect(() => {
+    if (!payer || !payerDrugMap) return
+    const selectedPayer = supportedPayers.find(p => p.displayName === payer)
+    if (!selectedPayer) return
+    const availableKeys = payerDrugMap[selectedPayer.id] ?? []
+    const currentDrugObj = supportedDrugs.find(d => d.displayName === drug)
+    if (drug && currentDrugObj && !availableKeys.includes(currentDrugObj.key)) {
+      setDrug('')
+    }
+  }, [payer]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compute which drugs to show based on selected payer
+  const selectedPayerObj = supportedPayers.find(p => p.displayName === payer)
+  const availableDrugKeys = selectedPayerObj ? (payerDrugMap[selectedPayerObj.id] ?? []) : null
+  const filteredDrugs = availableDrugKeys
+    ? supportedDrugs.filter(d => availableDrugKeys.includes(d.key))
+    : supportedDrugs
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!payer.trim() || !drug.trim()) return
-    onSubmit({ payer, drug, diagnosis: diagnosis || undefined, icd10: icd10 || undefined, priorTherapies: priorTherapies || undefined, specialty: specialty || undefined, careSetting: careSetting || undefined, age: age || undefined })
+    onSubmit({
+      payer, drug,
+      diagnosis: diagnosis || undefined,
+      icd10: icd10 || undefined,
+      priorTherapies: priorTherapies || undefined,
+      specialty: specialty || undefined,
+      careSetting: careSetting || undefined,
+      age: age || undefined,
+    })
   }
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '0.625rem 0.875rem',
     border: '1px solid var(--line-mid)', borderRadius: 10,
     fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--ink-strong)',
-    background: 'var(--bg-surface)', outline: 'none',
-    boxSizing: 'border-box',
+    background: 'var(--bg-surface)', outline: 'none', boxSizing: 'border-box',
   }
-
   const labelStyle: React.CSSProperties = {
     fontSize: 12, fontWeight: 600, color: 'var(--ink-muted)',
     textTransform: 'uppercase', letterSpacing: '0.06em',
     display: 'block', marginBottom: 6,
   }
+
+  const canSubmit = payer.trim() && drug.trim()
 
   return (
     <motion.form
@@ -60,27 +92,35 @@ export function CoverageIntakeForm({ prefillPayer, prefillDrug, prefillDiagnosis
       style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
+        {/* Payer */}
         <div>
           <label style={labelStyle}>Payer *</label>
-          {supportedPayers.length > 0 ? (
-            <select value={payer} onChange={e => setPayer(e.target.value)} style={inputStyle} required>
-              <option value="">Select payer…</option>
-              {supportedPayers.map(p => <option key={p.id} value={p.displayName}>{p.displayName}</option>)}
-            </select>
-          ) : (
-            <input value={payer} onChange={e => setPayer(e.target.value)} placeholder="e.g. UnitedHealthcare" style={inputStyle} required />
-          )}
+          <select value={payer} onChange={e => { setPayer(e.target.value); setDrug('') }} style={inputStyle} required>
+            <option value="">Select payer…</option>
+            {supportedPayers.map(p => <option key={p.id} value={p.displayName}>{p.displayName}</option>)}
+          </select>
         </div>
+
+        {/* Drug — filtered by payer */}
         <div>
-          <label style={labelStyle}>Drug *</label>
-          {supportedDrugs.length > 0 ? (
-            <select value={drug} onChange={e => setDrug(e.target.value)} style={inputStyle} required>
-              <option value="">Select drug…</option>
-              {supportedDrugs.map(d => <option key={d.key} value={d.displayName}>{d.displayName}</option>)}
-            </select>
-          ) : (
-            <input value={drug} onChange={e => setDrug(e.target.value)} placeholder="e.g. Infliximab / Remicade" style={inputStyle} required />
-          )}
+          <label style={labelStyle}>
+            Drug *
+            {payer && filteredDrugs.length > 0 && (
+              <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 4, color: '#2B50FF' }}>
+                ({filteredDrugs.length} indexed)
+              </span>
+            )}
+          </label>
+          <select
+            value={drug}
+            onChange={e => setDrug(e.target.value)}
+            style={{ ...inputStyle, opacity: !payer ? 0.5 : 1 }}
+            required
+            disabled={!payer}
+          >
+            <option value="">{payer ? 'Select drug…' : 'Select payer first'}</option>
+            {filteredDrugs.map(d => <option key={d.key} value={d.displayName}>{d.displayName}</option>)}
+          </select>
         </div>
       </div>
 
@@ -94,7 +134,7 @@ export function CoverageIntakeForm({ prefillPayer, prefillDrug, prefillDiagnosis
         onClick={() => setShowAdvanced(v => !v)}
         style={{ fontSize: 12, color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, fontFamily: 'var(--font-sans)' }}
       >
-        {showAdvanced ? '− Hide optional fields' : '+ Optional: ICD-10, prior therapies, specialty, care setting, age'}
+        {showAdvanced ? '− Hide optional fields' : '+ ICD-10, prior therapies, specialty, care setting, age'}
       </button>
 
       {showAdvanced && (
@@ -131,15 +171,15 @@ export function CoverageIntakeForm({ prefillPayer, prefillDrug, prefillDiagnosis
 
       <motion.button
         type="submit"
-        whileHover={{ background: '#1D4ED8' }}
-        whileTap={{ scale: 0.98 }}
-        disabled={!payer.trim() || !drug.trim()}
+        whileHover={{ background: canSubmit ? '#1D4ED8' : undefined }}
+        whileTap={{ scale: canSubmit ? 0.98 : 1 }}
+        disabled={!canSubmit}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           padding: '0.75rem 1.5rem', borderRadius: 12, border: 'none',
           background: '#2B50FF', color: '#fff',
-          fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          fontFamily: 'var(--font-sans)', opacity: (!payer.trim() || !drug.trim()) ? 0.5 : 1,
+          fontSize: 14, fontWeight: 600, cursor: canSubmit ? 'pointer' : 'not-allowed',
+          fontFamily: 'var(--font-sans)', opacity: canSubmit ? 1 : 0.45,
           transition: 'opacity 0.15s',
         }}
       >
