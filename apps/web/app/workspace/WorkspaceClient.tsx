@@ -1,7 +1,6 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
   Search, ArrowRight, LayoutGrid, ClipboardCheck, Radio,
@@ -73,18 +72,14 @@ export function WorkspaceClient({
   payerDrugMap:  Record<string, string[]>
 }) {
   const { open } = useAssistant()
-  const router   = useRouter()
   const [query, setQuery] = useState('')
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     const q = query.trim()
     if (!q) return
-    if (q.length > 20 || /\b(cover|payer|pa|step|block|require|criteria)\b/i.test(q)) {
-      open(q)
-    } else {
-      router.push(`/matrix?q=${encodeURIComponent(q)}`)
-    }
+    open(q)
+    setQuery('')
   }
 
   return (
