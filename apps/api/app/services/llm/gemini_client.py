@@ -15,7 +15,7 @@ from ...core.config import get_settings
 
 _client: genai.Client | None = None
 
-_RETRY_DELAYS = [30, 60, 120]  # seconds between retries on rate limit
+_RETRY_DELAYS = [60, 120, 300]  # seconds between retries on rate limit
 
 
 def get_client() -> genai.Client:
