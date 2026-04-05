@@ -257,7 +257,7 @@ export default function LandingPage() {
                 variants={fadeUp}
                 {...hoverLift}
                 className="card-policy p-8 flex flex-col gap-5"
-                style={{ paddingTop: '2.5rem' }}
+                style={{ borderLeft: `3px solid ${accent}` }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span

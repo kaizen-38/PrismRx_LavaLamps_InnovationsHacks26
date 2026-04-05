@@ -69,7 +69,7 @@ export default function MatrixPage() {
               className="font-serif-display text-4xl font-medium mb-2"
               style={{ color: 'var(--ink-strong)', letterSpacing: '-0.015em' }}
             >
-              Coverage Overview
+              Coverage Matrix
               {loading && <RefreshCw className="inline-block w-5 h-5 ml-3 mb-0.5 animate-spin" style={{ color: 'var(--ink-muted)' }} />}
             </h1>
             <p className="text-sm max-w-2xl" style={{ color: 'var(--ink-body)' }}>

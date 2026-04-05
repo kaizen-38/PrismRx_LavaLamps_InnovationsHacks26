@@ -1,10 +1,27 @@
-# Sample questions — PrismRx workspace
+# Test prompts — PrismRx Workspace (`/workspace`)
 
-Use these in **Workspace** to exercise indexed lookup, live crawl, and UI flows.
+Copy any line below into the chat. **Indexed** = hits your Postgres policy rows first. **Live** = DB miss, then web crawl (slower; needs API/network).
 
-1. **Indexed coverage** — Does Aetna cover infliximab, and is prior authorization required?
-2. **Another payer + drug** — What does UnitedHealthcare’s policy say about rituximab and step therapy?
-3. **Brand names** — Cigna Entyvio (vedolizumab) — summarize PA criteria from the indexed policy.
-4. **Live path** (if not in index) — Anthem infliximab prior authorization requirements.
-5. **Explore dataset** — What drugs are in the indexed dataset?
-6. **Compare / intake** — Compare indexed payers for the same drug family, or: I want to check coverage for a specific payer and drug.
+## Indexed coverage (payer + drug)
+
+- Does Aetna cover infliximab? Is prior authorization required?
+- UnitedHealthcare rituximab — step therapy and site of care?
+- Cigna vedolizumab coverage criteria and PA
+- Does UHC cover Remicade for Crohn’s?
+
+## Live-heavy (often unindexed — exercises `/api/policy/live`)
+
+- Anthem infliximab prior authorization requirements
+- Priority Health rituximab medical policy
+
+## Greeting & navigation (widgets, no full lookup)
+
+- Hi
+- What drugs are in the indexed dataset?
+- Compare indexed payers
+- I want to check coverage for a specific payer and drug
+
+## Short / natural
+
+- Aetna + Entyvio PA?
+- Is infliximab covered under Cigna?

@@ -130,6 +130,9 @@
   .font-serif-accent { font-family: var(--font-serif); }
   .font-mono-data    { font-family: var(--font-mono);  }
 
+  /* Tabular figures for data numbers */
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
   /* Gradient text — accent blue */
   .text-gradient-accent {
     background: linear-gradient(135deg, var(--accent-blue) 0%, #6B8FFF 100%);
@@ -212,14 +215,6 @@
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-sm);
     position: relative;
-  }
-  .card-policy::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 20px;
-    width: 40px; height: 3px;
-    background: var(--accent-blue);
-    border-radius: 0 0 4px 4px;
   }
 
   /* Glass overlay — nav, sticky panels */
