@@ -372,6 +372,44 @@
   50%       { transform: translateY(-8px); }
 }
 
+/* ── Workspace / insight deck (hackathon polish) ───────────────────────────── */
+.workspace-deck-mesh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 75% 55% at 12% 18%, rgba(43, 80, 255, 0.16), transparent 52%),
+    radial-gradient(ellipse 55% 48% at 88% 12%, rgba(15, 118, 110, 0.12), transparent 48%),
+    radial-gradient(ellipse 50% 42% at 72% 88%, rgba(124, 58, 237, 0.08), transparent 45%),
+    var(--bg-canvas);
+}
+.workspace-deck-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(rgba(43, 80, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43, 80, 255, 0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black 0%, black 65%, transparent 100%);
+}
+.workspace-deck-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 4px 24px rgba(15, 23, 42, 0.06),
+    0 0 0 1px rgba(43, 80, 255, 0.06) inset;
+  border-radius: 24px;
+}
+
+/* Workspace is a full-viewport shell; hide global footer to avoid 6rem+ gap below */
+body:has([data-workspace-page]) > footer {
+  display: none;
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
