@@ -31,19 +31,59 @@ _DRUG_FAMILIES: dict[str, dict] = {
         "reference": "Rituxan",
         "biosimilars": ["Truxima", "Ruxience", "Riabni"],
     },
+    "anti-cd20 ms": {
+        "key": "ocrelizumab",
+        "display": "Ocrelizumab",
+        "short": "OCR",
+        "reference": "Ocrevus",
+        "biosimilars": ["Ocrevus Zunovo"],
+    },
 }
 
 
+_PAYER_CANONICAL: dict[str, tuple[str, str]] = {
+    # (normalized key, display label) — merges variants
+    "unitedhealthcare":      ("unitedhealthcare", "UnitedHealthcare"),
+    "uhc":                   ("unitedhealthcare", "UnitedHealthcare"),
+    "aetna":                 ("aetna", "Aetna"),
+    "cigna":                 ("cigna", "Cigna"),
+    "cigna healthcare":      ("cigna", "Cigna"),
+    "cigna health":          ("cigna", "Cigna"),
+    "blue shield":           ("bsca", "Blue Shield CA"),
+    "blue shield of california": ("bsca", "Blue Shield CA"),
+    "bsca":                  ("bsca", "Blue Shield CA"),
+}
+
 def _payer_key(payer: str) -> str:
     """Normalize payer name to a stable lowercase ID."""
-    return payer.lower().replace(" ", "_").replace("/", "_")
+    lower = payer.lower().strip()
+    entry = _PAYER_CANONICAL.get(lower)
+    if entry:
+        return entry[0]
+    # Fuzzy fallback
+    for key_pattern, (canonical, _) in _PAYER_CANONICAL.items():
+        if key_pattern in lower:
+            return canonical
+    return lower.replace(" ", "_").replace("/", "_")
+
+def _payer_label(payer: str) -> str:
+    """Return canonical display label for a payer."""
+    lower = payer.lower().strip()
+    entry = _PAYER_CANONICAL.get(lower)
+    if entry:
+        return entry[1]
+    for key_pattern, (_, label) in _PAYER_CANONICAL.items():
+        if key_pattern in lower:
+            return label
+    return payer
 
 
 def _drug_info(record: PolicyRecord) -> dict:
     family = (record.drug_family or "").lower()
-    for fam_key, info in _DRUG_FAMILIES.items():
+    # Check longest keys first to avoid "anti-cd20" matching "anti-cd20 ms"
+    for fam_key in sorted(_DRUG_FAMILIES.keys(), key=len, reverse=True):
         if fam_key in family:
-            return info
+            return _DRUG_FAMILIES[fam_key]
     # Fallback: derive from drug_names
     names = record.drug_names or []
     key = names[0].lower() if names else "unknown"
@@ -110,21 +150,23 @@ async def get_coverage_matrix(
             or any(drug_lower in n.lower() for n in (r.drug_names or []))
         ]
 
-    # Build payer registry
+    # Build payer registry (canonical — deduplicates Cigna / Cigna Healthcare)
     payer_ids: list[str] = []
     payer_labels: dict[str, str] = {}
     for r in records:
         pid = _payer_key(r.payer)
         if pid not in payer_labels:
             payer_ids.append(pid)
-            payer_labels[pid] = r.payer
+            payer_labels[pid] = _payer_label(r.payer)
 
-    # Group records by drug key → list of records
+    # Group records by drug key → list of records, skip "unknown" family
     drug_groups: dict[str, list[PolicyRecord]] = {}
     drug_meta: dict[str, dict] = {}
     for r in records:
         info = _drug_info(r)
         dk = info["key"]
+        if dk == "unknown":
+            continue  # skip site-of-care / cross-cutting docs without a drug
         drug_groups.setdefault(dk, []).append(r)
         drug_meta[dk] = info
 
@@ -133,8 +175,9 @@ async def get_coverage_matrix(
     for dk, recs in drug_groups.items():
         meta = drug_meta[dk]
         cells: dict[str, dict] = {}
-        for r in recs:
+        for r in sorted(recs, key=lambda x: x.extraction_confidence or 0):
             pid = _payer_key(r.payer)
+            # Higher confidence record wins (last write wins after sort)
             cells[pid] = {
                 "policy_id": r.id,
                 "coverage_status": _map_coverage_status(r.coverage_status),

@@ -42,8 +42,10 @@ async def main():
 
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+    import asyncio as _asyncio
+
     results = []
-    for file_path, payer, drug_family in DOCS:
+    for idx, (file_path, payer, drug_family) in enumerate(DOCS):
         path = ROOT / file_path
         if not path.exists():
             print(f"  SKIP  {file_path} — file not found")
@@ -70,6 +72,11 @@ async def main():
         except Exception as e:
             print(f"    ERROR: {e}", flush=True)
             results.append({"file": file_path, "payer": payer, "status": "error", "error": str(e)})
+
+        # Cooldown between docs to avoid TPM rate limits
+        if idx < len(DOCS) - 1:
+            print(f"  Cooling down 30s before next document...", flush=True)
+            await _asyncio.sleep(30)
 
     ok = [r for r in results if r["status"] == "ok"]
     print(f"\nDone: {len(ok)}/{len(results)} successful", flush=True)
