@@ -4,7 +4,9 @@
 // SERVER SIDE ONLY — used by assistant-orchestrator.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+/** Prefer API_URL on the server so fetches are not forced through the public browser origin. */
+const API_BASE =
+  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000'
 
 // ── Types from API response ───────────────────────────────────────────────────
 
@@ -71,7 +73,7 @@ export async function lookupPolicy(
   drug: string
 ): Promise<PolicyLookupResult> {
   const url = `${API_BASE}/api/policy?payer=${encodeURIComponent(payer)}&drug=${encodeURIComponent(drug)}`
-  const res = await fetch(url, { next: { revalidate: 60 } })
+  const res = await fetch(url, { cache: 'no-store' })
   if (!res.ok) {
     throw new Error(`Policy lookup failed: HTTP ${res.status}`)
   }
@@ -82,7 +84,7 @@ export async function getSupportedOptions(): Promise<{
   payers: PayerOption[]
   drugs: DrugOption[]
 }> {
-  const res = await fetch(`${API_BASE}/api/policy/options`, { next: { revalidate: 300 } })
+  const res = await fetch(`${API_BASE}/api/policy/options`, { cache: 'no-store' })
   if (!res.ok) {
     return { payers: [], drugs: [] }
   }
@@ -106,17 +108,31 @@ export interface LivePolicyResult {
   text: string | null
   charCount: number
   source: 'pdf' | 'html' | null
+  /** HTTP status when the API responded (e.g. 404 = live route missing on older backends). */
+  httpStatus?: number
+  /** True if fetch threw (network, DNS, timeout). */
+  fetchFailed?: boolean
 }
 
 export async function getLivePolicyText(
   payer: string,
   drug: string,
 ): Promise<LivePolicyResult> {
+  const base: LivePolicyResult = {
+    found: false,
+    url: null,
+    text: null,
+    charCount: 0,
+    source: null,
+  }
   try {
     const res = await fetch(
       `${API_BASE}/api/policy/live?payer=${encodeURIComponent(payer)}&drug=${encodeURIComponent(drug)}`,
+      { cache: 'no-store', signal: AbortSignal.timeout(90_000) },
     )
-    if (!res.ok) return { found: false, url: null, text: null, charCount: 0, source: null }
+    if (!res.ok) {
+      return { ...base, httpStatus: res.status }
+    }
     const data = await res.json()
     return {
       found: data.found ?? false,
@@ -124,15 +140,18 @@ export async function getLivePolicyText(
       text: data.text ?? null,
       charCount: data.char_count ?? 0,
       source: data.source ?? null,
+      httpStatus: res.status,
     }
   } catch {
-    return { found: false, url: null, text: null, charCount: 0, source: null }
+    return { ...base, fetchFailed: true }
   }
 }
 
 export async function getDocumentText(policyId: string): Promise<PolicyDocument> {
   try {
-    const res = await fetch(`${API_BASE}/api/policy/${encodeURIComponent(policyId)}/document`)
+    const res = await fetch(`${API_BASE}/api/policy/${encodeURIComponent(policyId)}/document`, {
+      cache: 'no-store',
+    })
     if (!res.ok) return { rawText: null, fileName: null, sourceUri: null, pageCount: null }
     const data = await res.json()
     return {

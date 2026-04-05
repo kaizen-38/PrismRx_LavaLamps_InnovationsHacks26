@@ -9,6 +9,7 @@ from typing import Optional
 
 from ..core.database import get_db
 from ..models.policy import PolicyRecord, SourceDocument
+from ..services.crawler.policy_crawler import get_live_policy_text
 from .matrix import _payer_key, _drug_info, _friction_score, _map_coverage_status, _DRUG_FAMILIES
 
 router = APIRouter(prefix="/api", tags=["policy"])
@@ -189,6 +190,18 @@ async def get_supported_options(db: AsyncSession = Depends(get_db)):
         "payers": [{"id": k, "displayName": v} for k, v in sorted(payers.items())],
         "drugs": [{"key": k, "displayName": v} for k, v in sorted(drugs.items())],
     }
+
+
+# ── Live web search + document extract (same router so older deployments still expose it) ──
+
+
+@router.get("/policy/live")
+async def live_policy_crawl(
+    payer: str = Query(..., description="Payer name (e.g. 'UnitedHealthcare')"),
+    drug: str = Query(..., description="Drug name (e.g. 'vedolizumab')"),
+):
+    """Search the web for a payer+drug policy document and return extracted text."""
+    return await get_live_policy_text(payer, drug)
 
 
 # ── Raw document text endpoint ─────────────────────────────────────────────────
