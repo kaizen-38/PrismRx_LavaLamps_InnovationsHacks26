@@ -371,6 +371,40 @@ Use language like "per the indexed policy snapshot" and be factual and concise.`
     { type: 'limitation_notice', props: {} },
   ]
 
+  // Conditionally add site-of-care widget if data exists
+  if (details.siteOfCare) {
+    sideWidgets.splice(1, 0, {
+      type: 'site_of_care',
+      props: { siteOfCare: details.siteOfCare },
+    })
+  }
+
+  // Add preferred alternative card if biosimilar or preferred product data exists
+  const biosimilars = details.record.raw.biosimilars ?? []
+  const referenceProduct = details.record.raw.reference_product ?? null
+  if (biosimilars.length > 0 || referenceProduct) {
+    const biosimilarNote = details.record.raw.clinical_criteria?.additional_notes
+      ?.find(n => /biosimilar|non-preferred|preferred/i.test(n)) ?? null
+    sideWidgets.splice(2, 0, {
+      type: 'preferred_alternative',
+      props: {
+        preferredProduct: biosimilars[0] ?? null,
+        nonPreferredProduct: biosimilars.length > 0 ? referenceProduct : null,
+        biosimilars,
+        note: biosimilarNote,
+      },
+    })
+  }
+
+  // Add mini comparison widget if there are related payers for the same drug
+  const sameDrugRelated = related.filter(r => r.drug.key === drugKey)
+  if (sameDrugRelated.length > 0) {
+    sideWidgets.splice(-2, 0, {
+      type: 'mini_comparison',
+      props: { drugDisplay, combinations: sameDrugRelated },
+    })
+  }
+
   return {
     requestId,
     intent: 'coverage_lookup',

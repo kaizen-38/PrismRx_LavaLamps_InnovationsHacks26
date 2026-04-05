@@ -11,6 +11,9 @@ import { PolicySnapshotCard } from './PolicySnapshotCard'
 import { RelatedActions } from './RelatedActions'
 import { SupportedOptionsCard } from './SupportedOptionsCard'
 import { LimitationNotice } from './LimitationNotice'
+import { SiteOfCareWidget } from './SiteOfCareWidget'
+import { PreferredAlternativeCard } from './PreferredAlternativeCard'
+import { MiniComparisonWidget } from './MiniComparisonWidget'
 
 interface Props {
   widget: Widget
@@ -73,6 +76,20 @@ export function WidgetRenderer({ widget, onAction, onIntakeSubmit, onLookup, onN
 
     case 'limitation_notice':
       return <LimitationNotice {...widget.props} />
+
+    case 'site_of_care':
+      return <SiteOfCareWidget siteOfCare={widget.props.siteOfCare} />
+
+    case 'preferred_alternative':
+      return <PreferredAlternativeCard {...widget.props} />
+
+    case 'mini_comparison':
+      return (
+        <MiniComparisonWidget
+          {...widget.props}
+          onSelect={onLookup}
+        />
+      )
 
     default:
       return null

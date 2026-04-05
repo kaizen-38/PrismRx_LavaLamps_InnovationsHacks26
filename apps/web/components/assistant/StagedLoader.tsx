@@ -22,7 +22,7 @@ export function StagedLoader({ stages, onComplete }: Props) {
       if (i >= stages.length) { onComplete(); return }
       setCurrentStage(i)
       setTimeout(() => {
-        setCompletedStages(prev => new Set([...prev, i]))
+        setCompletedStages(prev => { const next = new Set(prev); next.add(i); return next })
         runStage(i + 1)
       }, stages[i].durationMs)
     }

@@ -7,6 +7,7 @@ import type { AssistantResponse, Widget } from '@/lib/assistant-types'
 import { StagedLoader } from '@/components/assistant/StagedLoader'
 import { WidgetRenderer } from '@/components/assistant/WidgetRenderer'
 import { RequestSummaryCard } from '@/components/assistant/RequestSummaryCard'
+import { WidgetReveal } from '@/components/assistant/WidgetReveal'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -283,28 +284,33 @@ export function WorkspaceClient({
       </div>
 
       {/* ── RIGHT PANE: widgets ─────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
+      <div
+        role="region"
+        aria-label="Coverage report panel"
+        aria-busy={showLoader}
+        style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}
+      >
         <AnimatePresence mode="wait">
           {showLoader ? (
             <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <StagedLoader stages={latestLoaderStages} onComplete={handleLoaderComplete} />
             </motion.div>
           ) : displayWidget ? (
-            <motion.div key="widgets" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+            <motion.div key="widgets" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {/* Request summary if applicable */}
               {displayResponse?.meta.resolvedPayer && displayResponse?.meta.resolvedDrug && (
-                <div style={{ marginBottom: '1rem' }}>
+                <WidgetReveal delay={0} style={{ marginBottom: '1rem' }}>
                   <RequestSummaryCard
                     resolvedPayer={displayResponse.meta.resolvedPayer}
                     resolvedDrug={displayResponse.meta.resolvedDrug}
                     matchConfidence={displayResponse.meta.isIndexed ? 'exact' : 'unindexed'}
                     originalQuery={conversation.findLast(e => e.role === 'user')?.text ?? ''}
                   />
-                </div>
+                </WidgetReveal>
               )}
 
               {/* Primary widget */}
-              <div style={{ marginBottom: '1rem' }}>
+              <WidgetReveal delay={0.05} style={{ marginBottom: '1rem' }}>
                 <WidgetRenderer
                   widget={displayWidget}
                   onAction={handleAction}
@@ -314,17 +320,11 @@ export function WorkspaceClient({
                   supportedPayers={initialPayers}
                   supportedDrugs={initialDrugs}
                 />
-              </div>
+              </WidgetReveal>
 
-              {/* Side widgets */}
+              {/* Side widgets — progressively revealed */}
               {displayResponse?.sideWidgets.map((w, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.3 }}
-                  style={{ marginBottom: '0.875rem' }}
-                >
+                <WidgetReveal key={i} delay={0.08 + i * 0.07} style={{ marginBottom: '0.875rem' }}>
                   <WidgetRenderer
                     widget={w}
                     onAction={handleAction}
@@ -334,7 +334,7 @@ export function WorkspaceClient({
                     supportedPayers={initialPayers}
                     supportedDrugs={initialDrugs}
                   />
-                </motion.div>
+                </WidgetReveal>
               ))}
             </motion.div>
           ) : (
