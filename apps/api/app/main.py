@@ -1,5 +1,5 @@
 """
-PrismRx API — FastAPI entrypoint (merged: rhythm's routing + sam's logging/error handling).
+PrismRx API — FastAPI entrypoint.
 """
 import logging
 from contextlib import asynccontextmanager
@@ -13,20 +13,20 @@ from .core.database import init_db
 from .api.ingest import router as ingest_router
 from .api.policies import router as policy_router
 from .api.matrix import router as matrix_router
-from .routers import simulate, diff
+from .api.simulate import router as simulate_router
+from .api.diff import router as diff_router
 
-# Configure logging
 settings = get_settings()
 logging.basicConfig(
     level=getattr(logging, settings.log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"Starting PrismRx API")
+    logger.info("Starting PrismRx API")
     await init_db()
     yield
     logger.info("Shutting down PrismRx API")
@@ -50,13 +50,13 @@ app.add_middleware(
 app.include_router(ingest_router)
 app.include_router(policy_router)
 app.include_router(matrix_router)
-app.include_router(simulate.router, prefix="/api/v1/simulate", tags=["simulate"])
-app.include_router(diff.router, prefix="/api/v1/diff", tags=["diff"])
+app.include_router(simulate_router)
+app.include_router(diff_router)
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "service": "PrismRx"}
+    return {"status": "ok", "service": "PrismRx API"}
 
 
 @app.get("/")

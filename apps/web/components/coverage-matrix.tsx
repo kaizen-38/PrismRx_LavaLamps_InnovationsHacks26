@@ -286,11 +286,22 @@ export function MatrixFilterBar({
   selectedPayer, selectedDrug, onPayerChange, onDrugChange,
 }: MatrixFilterBarProps) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8,
+      background: '#FFFFFF',
+      border: '1px solid #E7EDF5',
+      borderRadius: 14,
+      padding: '10px 14px',
+      boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
+    }}>
       {/* Payer filter */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>Payer</span>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <span style={{
+          fontSize: 11, color: '#94A3B8', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.07em',
+          flexShrink: 0,
+        }}>Payer</span>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <FilterChip label="All" active={selectedPayer === null} onClick={() => onPayerChange(null)} />
           {payers.map((p) => (
             <FilterChip
@@ -302,11 +313,15 @@ export function MatrixFilterBar({
         </div>
       </div>
 
-      <div style={{ width: 1, height: 16, background: '#E7EDF5' }} />
+      <div style={{ width: 1, height: 20, background: '#E7EDF5', flexShrink: 0 }} />
 
       {/* Drug filter */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>Drug</span>
+        <span style={{
+          fontSize: 11, color: '#94A3B8', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.07em',
+          flexShrink: 0,
+        }}>Drug</span>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <FilterChip label="All" active={selectedDrug === null} onClick={() => onDrugChange(null)} />
           {drugKeys.map((d) => (
@@ -327,15 +342,15 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
     <button
       onClick={onClick}
       style={{
-        padding: '4px 12px', borderRadius: 9999,
+        padding: '5px 13px', borderRadius: 9999,
         fontSize: 12, fontWeight: 500,
-        cursor: 'pointer', border: 'none', transition: 'all 150ms',
-        color:      active ? '#2B50FF' : '#64748B',
-        background: active ? '#ECF1FF' : 'transparent',
-        outline:    active ? '1px solid #2B50FF40' : 'none',
+        cursor: 'pointer', transition: 'all 150ms',
+        color:      active ? '#2B50FF' : '#475569',
+        background: active ? '#ECF1FF' : '#FFFFFF',
+        border:     active ? '1px solid #2B50FF40' : '1px solid #D1D9E6',
       }}
-      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#111827'; (e.currentTarget as HTMLElement).style.background = '#F3F6FB' }}}
-      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#64748B'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}}
+      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#111827'; (e.currentTarget as HTMLElement).style.borderColor = '#94A3B8'; (e.currentTarget as HTMLElement).style.background = '#F6F8FB' }}}
+      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = '#475569'; (e.currentTarget as HTMLElement).style.borderColor = '#D1D9E6'; (e.currentTarget as HTMLElement).style.background = '#FFFFFF' }}}
     >
       {label}
     </button>

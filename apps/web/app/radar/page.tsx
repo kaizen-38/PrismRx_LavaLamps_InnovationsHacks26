@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingDown, TrendingUp, Minus, AlertCircle } from 'lucide-react'
 import { fadeUp, stagger, spring } from '@/lib/motion/presets'
+import { fetchDiffs } from '@/lib/api-client'
+import type { PolicyDiff } from '@/lib/types'
 
 type DriftType = 'tightened' | 'loosened' | 'unchanged' | 'new'
 
@@ -19,7 +21,22 @@ interface PolicyChange {
   version_to: string
 }
 
-const MOCK_CHANGES: PolicyChange[] = [
+// ── API diffs → local shape ────────────────────────────────────────────────────
+function diffToChanges(diff: PolicyDiff): PolicyChange[] {
+  return diff.changes.map((c) => ({
+    payer: diff.payer_name,
+    drug: diff.drug_display_name,
+    field: c.field_label,
+    drift: (c.change_type === 'added' ? 'new' : c.change_type) as DriftType,
+    summary: `${c.field_label}: ${c.before} → ${c.after}`,
+    before: c.before,
+    after: c.after,
+    version_from: diff.version_before,
+    version_to: diff.version_after,
+  }))
+}
+
+const FALLBACK_CHANGES: PolicyChange[] = [
   {
     payer: 'UnitedHealthcare', drug: 'Infliximab', field: 'Step Therapy Requirements', drift: 'tightened',
     summary: 'Added requirement for 3-month DMARD trial before approval.',
@@ -35,7 +52,7 @@ const MOCK_CHANGES: PolicyChange[] = [
     version_from: 'Jul 2023', version_to: 'Jan 2024',
   },
   {
-    payer: 'UPMC Health Plan', drug: 'Vedolizumab', field: 'Prior Authorization', drift: 'loosened',
+    payer: 'UnitedHealthcare', drug: 'Vedolizumab', field: 'Prior Authorization', drift: 'loosened',
     summary: 'Removed TNF-inhibitor step therapy requirement for IBD indication.',
     before: 'TNF-inhibitor failure required for IBD',
     after: 'PA required, no mandatory TNF step',
@@ -48,7 +65,7 @@ const MOCK_CHANGES: PolicyChange[] = [
     version_from: '—', version_to: 'Jan 2024',
   },
   {
-    payer: 'Cigna', drug: 'Abatacept IV', field: 'Reauthorization', drift: 'unchanged',
+    payer: 'Cigna', drug: 'Infliximab', field: 'Reauthorization', drift: 'unchanged',
     summary: 'Annual reauthorization requirements remain the same.',
     before: 'Annual review with clinical documentation',
     after: 'Annual review with clinical documentation',
@@ -65,12 +82,22 @@ const DRIFT_CONFIG = {
 
 export default function RadarPage() {
   const [filter, setFilter] = useState<DriftType | 'all'>('all')
-  const filtered = filter === 'all' ? MOCK_CHANGES : MOCK_CHANGES.filter(c => c.drift === filter)
+  const [apiChanges, setApiChanges] = useState<PolicyChange[] | null>(null)
+
+  useEffect(() => {
+    fetchDiffs().then((diffs) => {
+      const all = diffs.flatMap(diffToChanges)
+      if (all.length > 0) setApiChanges(all)
+    }).catch(() => {})
+  }, [])
+
+  const ALL_CHANGES = apiChanges ?? FALLBACK_CHANGES
+  const filtered = filter === 'all' ? ALL_CHANGES : ALL_CHANGES.filter(c => c.drift === filter)
   const counts = {
-    tightened: MOCK_CHANGES.filter(c => c.drift === 'tightened').length,
-    loosened:  MOCK_CHANGES.filter(c => c.drift === 'loosened').length,
-    new:       MOCK_CHANGES.filter(c => c.drift === 'new').length,
-    unchanged: MOCK_CHANGES.filter(c => c.drift === 'unchanged').length,
+    tightened: ALL_CHANGES.filter(c => c.drift === 'tightened').length,
+    loosened:  ALL_CHANGES.filter(c => c.drift === 'loosened').length,
+    new:       ALL_CHANGES.filter(c => c.drift === 'new').length,
+    unchanged: ALL_CHANGES.filter(c => c.drift === 'unchanged').length,
   }
 
   return (
