@@ -40,10 +40,12 @@ Branch documentation for the document-grounded policy assistant, live web crawl,
 
 | Area | Notes |
 |------|--------|
-| **Orchestrator** | `apps/web/lib/assistant-orchestrator.ts` — after DB miss, calls live crawl once, then coverage or explicit refusal; `buildCoverageFromSources` + Claude refusal rules when document text is insufficient. |
+| **Orchestrator** | `apps/web/lib/assistant-orchestrator.ts` — LangGraph `compileAssistantGraph` routes intent → terminal node; after DB miss, live crawl once, then coverage or refusal; `runCoveragePipeline` / `runExploreCompareResponse`. |
+| **LangGraph** | `apps/web/lib/assistant-graph.ts` — `parse` → conditional edges → `greeting` \| `explore_compare` \| `missing_response` \| `coverage`. |
+| **Prompts** | `apps/web/lib/assistant-prompts.ts` — `DOC_ANALYSIS_SYSTEM`, `buildDocumentAnalysisUserPrompt` for Bedrock document Q&A. |
 | **API client** | `apps/web/lib/policy/db-repository.ts` — `API_URL` or `NEXT_PUBLIC_API_URL` for server-side fetch; `cache: 'no-store'`; live fetch timeout; optional `httpStatus` / `fetchFailed` for error copy. |
 | **Types** | `apps/web/lib/assistant-types.ts` — `dataSource: 'manual_indexed' \| 'live_web'`. |
-| **Workspace UI** | `apps/web/app/workspace/WorkspaceClient.tsx` — longer assistant request timeout; copy reflects indexed + live. |
+| **Workspace UI** | `apps/web/app/workspace/WorkspaceClient.tsx` — insight deck (mesh + glass panel), chat timeline; initial greeting via Strict Mode–safe effect (remount-friendly); chat scroll contained to the thread (`chatScrollRef`, no `scrollIntoView` on `window`); `100dvh` shell; `data-workspace-page` + `globals.css` hides global footer on this route to remove bottom gap. |
 | **Tests** | `assistant-envelope.test.ts` — mocks `getLivePolicyText` for speed. |
 
 ---
@@ -91,13 +93,14 @@ Workspace: **http://localhost:3000/workspace**
 
 **Sample prompts**
 
-- Indexed: `Does UnitedHealthcare cover infliximab?` · `Cigna rituximab coverage`
-- Live-heavy (often not indexed): `Does Aetna cover vedolizumab?` · `Aetna Entyvio medical benefit policy`
+- See **`questions.md`** in the repo root for six copy-paste examples (indexed, live path, explore, compare).
+- Short list: indexed — `Does UnitedHealthcare cover infliximab?`, `Cigna rituximab coverage`; live-heavy — `Anthem infliximab prior authorization`, `Aetna Entyvio` (if not in index).
 
 ---
 
 ## Related docs
 
+- `questions.md` — workspace test prompts.
 - `current.md` — earlier session summary (may overlap; this file is the `dev3` branch-oriented overview).
 
 ---

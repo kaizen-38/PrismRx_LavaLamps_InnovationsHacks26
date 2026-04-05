@@ -24,9 +24,11 @@ fuzzywuzzy==0.18.0
 # HTTP & API
 httpx==0.25.2
 requests==2.31.0
+boto3>=1.34.0
 
 # Web search & crawling
 duckduckgo-search>=6.0.0
+trafilatura>=1.8.0
 # crawl4ai>=0.4.0  # requires Windows Long Paths — using httpx+BS4 fallback instead
 
 # Authentication & Security

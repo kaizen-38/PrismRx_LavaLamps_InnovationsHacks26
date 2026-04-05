@@ -171,7 +171,7 @@ export interface AssistantResponse {
     resolvedPayer: string | null
     resolvedDrug: string | null
     isIndexed: boolean
-    dataSource: 'manual_indexed'
+    dataSource: 'manual_indexed' | 'live_web'
     modelUsed: 'bedrock' | 'fallback'
     timestamp: string
   }

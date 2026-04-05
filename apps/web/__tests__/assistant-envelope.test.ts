@@ -10,22 +10,43 @@ vi.mock('../lib/bedrock', () => ({
   isBedrockConfigured: vi.fn().mockReturnValue(false),
 }))
 
+vi.mock('../lib/bedrock-stream', () => ({
+  callBedrockStream: vi.fn().mockResolvedValue(''),
+}))
+
+// Live crawl hits the real API with a long timeout — stub so tests stay fast.
+vi.mock('../lib/policy/db-repository', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../lib/policy/db-repository')>()
+  return {
+    ...mod,
+    getLivePolicyText: vi.fn().mockResolvedValue({
+      found: false,
+      url: null,
+      text: null,
+      charCount: 0,
+      source: null,
+    }),
+  }
+})
+
 import { orchestrate } from '../lib/assistant-orchestrator'
 
-describe('orchestrate — greeting', () => {
-  it('returns greeting intent with welcome_quick_actions widget', async () => {
+describe('orchestrate — conversational (no Bedrock in tests)', () => {
+  it('routes short greetings to general path (unknown intent), no canned widget', async () => {
     const response = await orchestrate({ message: 'hi' })
-    expect(response.intent).toBe('greeting')
-    expect(response.widget?.type).toBe('welcome_quick_actions')
+    expect(response.intent).toBe('unknown')
+    expect(response.widget).toBeNull()
     expect(response.assistantText).toBeTruthy()
     expect(response.requestId).toBeTruthy()
     expect(response.meta.dataSource).toBe('manual_indexed')
+    expect(response.meta.modelUsed).toBe('fallback')
   })
 
-  it('handles hello, hey, good morning', async () => {
+  it('handles hello, hey, good morning as conversational', async () => {
     for (const greeting of ['hello', 'hey', 'good morning']) {
       const res = await orchestrate({ message: greeting })
-      expect(res.intent).toBe('greeting')
+      expect(res.intent).toBe('unknown')
+      expect(res.widget).toBeNull()
     }
   })
 })
@@ -87,28 +108,31 @@ describe('orchestrate — unsupported / unindexed', () => {
   })
 })
 
-describe('orchestrate — missing fields', () => {
-  it('asks for drug when only payer given', async () => {
+describe('orchestrate — missing fields (LLM path in prod)', () => {
+  it('does not use template intake widget when only payer is given', async () => {
     const response = await orchestrate({
       message: 'What does Aetna cover?',
       context: { payer: 'Aetna' },
     })
-    // Should route to coverage_intake_form or supported options
-    expect(['coverage_intake_form', 'supported_options_card']).toContain(response.widget?.type)
+    expect(response.intent).toBe('missing_drug')
+    expect(response.widget).toBeNull()
+    expect(response.assistantText).toBeTruthy()
   })
 })
 
 describe('orchestrate — explore and compare', () => {
-  it('handles "what drugs are indexed"', async () => {
+  it('handles "what drugs are indexed" via general assistant', async () => {
     const response = await orchestrate({ message: 'What drugs are in the indexed dataset?' })
     expect(response.intent).toBe('explore_drugs')
-    expect(response.widget?.type).toBe('supported_options_card')
+    expect(response.widget).toBeNull()
+    expect(response.assistantText).toBeTruthy()
   })
 
-  it('handles "compare payers"', async () => {
+  it('handles "compare payers" via general assistant', async () => {
     const response = await orchestrate({ message: 'Compare all payers' })
     expect(response.intent).toBe('compare_payers')
-    expect(response.widget?.type).toBe('supported_options_card')
+    expect(response.widget).toBeNull()
+    expect(response.assistantText).toBeTruthy()
   })
 })
 
