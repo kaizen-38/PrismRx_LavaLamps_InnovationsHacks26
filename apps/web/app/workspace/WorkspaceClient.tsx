@@ -228,6 +228,8 @@ export function WorkspaceClient({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Ref-based speaking guard prevents stale closure re-entrancy
+  const isSpeakingRef = useRef(false)
 
   // Stop any playing audio
   const stopAudio = useCallback(() => {
@@ -236,12 +238,15 @@ export function WorkspaceClient({
       URL.revokeObjectURL(audioRef.current.src)
       audioRef.current = null
     }
+    isSpeakingRef.current = false
   }, [])
 
-  // Speak text via ElevenLabs — fires automatically after every assistant reply
+  // Speak text via ElevenLabs — always fires after each new assistant reply
   const speakText = useCallback(async (text: string) => {
-    if (!text) return
+    if (!text || isSpeakingRef.current) return
+    isSpeakingRef.current = true
     stopAudio()
+    isSpeakingRef.current = true // re-set after stopAudio clears it
     setVoiceState('speaking')
     try {
       const res = await fetch('/api/voice/speak', {
@@ -249,20 +254,21 @@ export function WorkspaceClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
-      if (!res.ok) { setVoiceState('idle'); return }
+      if (!res.ok) { isSpeakingRef.current = false; setVoiceState('idle'); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioRef.current = audio
-      audio.onended = () => { setVoiceState('idle'); URL.revokeObjectURL(url) }
-      audio.onerror = () => { setVoiceState('idle'); URL.revokeObjectURL(url) }
+      audio.onended = () => { isSpeakingRef.current = false; setVoiceState('idle'); URL.revokeObjectURL(url) }
+      audio.onerror = () => { isSpeakingRef.current = false; setVoiceState('idle'); URL.revokeObjectURL(url) }
       await audio.play()
     } catch {
+      isSpeakingRef.current = false
       setVoiceState('idle')
     }
   }, [stopAudio])
 
-  // Auto-speak every new assistant reply — always on, no toggle
+  // Auto-speak every new assistant reply
   const lastAssistantText = useMemo(
     () => conversation.findLast(e => e.role === 'assistant' && e.text && !e.isLoading)?.text ?? '',
     [conversation]
@@ -274,6 +280,15 @@ export function WorkspaceClient({
       speakText(lastAssistantText)
     }
   }, [lastAssistantText, speakText])
+
+  // Filter out garbage STT results (background noise transcribed as sound descriptions)
+  function isValidSpeech(transcript: string): boolean {
+    // Remove parenthetical sound descriptions: (clapping), (music), etc.
+    const stripped = transcript.replace(/\(.*?\)/g, '').trim()
+    // Must have at least 3 real words after stripping
+    const words = stripped.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w))
+    return words.length >= 3
+  }
 
   // Start recording via MediaRecorder
   const startRecording = useCallback(async () => {
@@ -293,12 +308,14 @@ export function WorkspaceClient({
           form.append('audio', blob, 'audio.webm')
           const res = await fetch('/api/voice/transcribe', { method: 'POST', body: form })
           const { transcript } = await res.json()
-          if (transcript?.trim()) {
-            // Show transcript in chat and send to model — TTS fires automatically on reply
-            handleSend(transcript.trim())
+          const cleaned = (transcript ?? '').trim()
+          // Only send if it looks like real speech, not background noise
+          if (cleaned && isValidSpeech(cleaned)) {
+            handleSend(cleaned)
           }
+          // If garbage, silently drop — user can try again or type
         } catch {
-          // silently fail — user can type instead
+          // network failure — silently drop
         } finally {
           setVoiceState('idle')
         }
