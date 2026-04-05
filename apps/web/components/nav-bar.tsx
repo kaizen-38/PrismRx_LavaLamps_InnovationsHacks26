@@ -2,8 +2,9 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PrismRx — NavBar
-// Open-by-default: all nav links are public. Auth shows Sign in / role pill.
-// Locked actions appear inline on pages — not as nav gates.
+// Adaptive: light on landing (/), dark on all app pages.
+// Compare is contextual (launched from matrix/policy), not a primary nav item.
+// Open-by-default: all links public. Auth gates actions only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
@@ -17,28 +18,37 @@ export default function NavBar() {
   const { user, loading, demoLogin, logout } = useAuth()
   const [showRoleMenu, setShowRoleMenu] = useState(false)
 
+  const isLanding = pathname === '/'
+  const dark = !isLanding
+
   return (
-    <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
+    <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
+      dark
+        ? 'border-navy-700 bg-navy-950/90'
+        : 'border-line-soft bg-surface/80'
+    }`}>
       <div className="mx-auto max-w-screen-2xl px-6 h-14 flex items-center justify-between">
 
         {/* Brand */}
         <a href="/" className="flex items-center gap-2 shrink-0">
           <span className="text-lg font-bold tracking-tight">
-            <span className="text-white">Prism</span>
+            <span className={dark ? 'text-white' : 'text-ink-strong'}>Prism</span>
             <span className="text-cyan-500">Rx</span>
           </span>
-          <span className="hidden sm:block text-xs font-mono text-slate-500 border border-navy-700 rounded px-1.5 py-0.5">
+          <span className={`hidden sm:block text-xs font-mono rounded px-1.5 py-0.5 border ${
+            dark ? 'text-slate-500 border-navy-700' : 'text-ink-muted border-line-mid'
+          }`}>
             Coverage Intelligence
           </span>
         </a>
 
-        {/* Nav — all public */}
+        {/* Primary nav — Matrix, Simulator, Change Radar, Sources.
+            Compare is contextual (launched from matrix cells), not top-level. */}
         <nav className="flex items-center gap-1">
-          <NavLink href="/matrix"   active={pathname === '/matrix'}>Matrix</NavLink>
-          <NavLink href="/compare"  active={pathname === '/compare'}>Compare</NavLink>
-          <NavLink href="/simulate" active={pathname?.startsWith('/simulate')}>Simulator</NavLink>
-          <NavLink href="/changes"  active={pathname === '/changes' || pathname === '/radar'}>Change Radar</NavLink>
-          <NavLink href="/sources"  active={pathname === '/sources'}>Sources</NavLink>
+          <NavLink href="/matrix"   active={pathname === '/matrix'}                         dark={dark}>Matrix</NavLink>
+          <NavLink href="/simulate" active={pathname?.startsWith('/simulate') ?? false}     dark={dark}>Simulator</NavLink>
+          <NavLink href="/changes"  active={pathname === '/changes' || pathname === '/radar'} dark={dark}>Change Radar</NavLink>
+          <NavLink href="/sources"  active={pathname === '/sources'}                        dark={dark}>Sources</NavLink>
         </nav>
 
         {/* Auth */}
@@ -50,11 +60,15 @@ export default function NavBar() {
               <button
                 type="button"
                 onClick={() => setShowRoleMenu(v => !v)}
-                className="flex items-center gap-2 rounded-lg border border-navy-600 bg-navy-800 hover:bg-navy-700 px-3 py-1.5 text-xs font-medium transition-colors"
+                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  dark
+                    ? 'border-navy-600 bg-navy-800 hover:bg-navy-700 text-slate-200'
+                    : 'border-line-mid bg-soft hover:bg-soft-2 text-ink-body'
+                }`}
               >
                 <RoleDot role={user.role} />
-                <span className="text-slate-200 capitalize">{user.role}</span>
-                <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className="capitalize">{user.role}</span>
+                <svg className={`w-3 h-3 ${dark ? 'text-slate-500' : 'text-ink-muted'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
@@ -106,7 +120,11 @@ export default function NavBar() {
           ) : (
             <a
               href="/login"
-              className="flex items-center gap-1.5 rounded-lg border border-cyan-700/60 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 text-xs font-semibold text-cyan-400 transition-colors"
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                dark
+                  ? 'border-cyan-700/60 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400'
+                  : 'border-accent-blue/30 bg-accent-blue-s hover:bg-blue-100 text-accent-blue'
+              }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -120,12 +138,24 @@ export default function NavBar() {
   )
 }
 
-function NavLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
+function NavLink({ href, active, dark, children }: { href: string; active?: boolean; dark: boolean; children: React.ReactNode }) {
+  if (dark) {
+    return (
+      <a
+        href={href}
+        className={`px-3 py-1.5 rounded-lg text-sm transition-colors duration-150 ${
+          active ? 'text-slate-100 bg-navy-800' : 'text-slate-400 hover:text-slate-100 hover:bg-navy-800'
+        }`}
+      >
+        {children}
+      </a>
+    )
+  }
   return (
     <a
       href={href}
       className={`px-3 py-1.5 rounded-lg text-sm transition-colors duration-150 ${
-        active ? 'text-slate-100 bg-navy-800' : 'text-slate-400 hover:text-slate-100 hover:bg-navy-800'
+        active ? 'text-ink-strong bg-soft' : 'text-ink-muted hover:text-ink-strong hover:bg-soft'
       }`}
     >
       {children}

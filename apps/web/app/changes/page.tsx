@@ -43,6 +43,7 @@ function ChangesInner() {
   const loosenedCount  = diffs.filter((d) => d.overall_direction === 'loosened').length
 
   return (
+    <div className="min-h-screen bg-navy-950">
     <div className="mx-auto max-w-screen-xl px-6 py-10">
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div className="mb-8">
@@ -177,6 +178,7 @@ function ChangesInner() {
           ))}
         </div>
       )}
+    </div>
     </div>
   )
 }

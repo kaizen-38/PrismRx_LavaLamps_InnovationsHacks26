@@ -50,7 +50,8 @@ export default function MatrixPage() {
     : 0
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-28 pb-20">
+    <div className="min-h-screen bg-navy-950">
+    <div className="mx-auto max-w-screen-2xl px-4 sm:px-8 pt-10 pb-20">
 
       {/* ── Page header ── */}
       <motion.div
@@ -144,6 +145,7 @@ export default function MatrixPage() {
           Effective dates reflect the most recent available version. No real patient data. Synthetic cases only.
         </p>
       </motion.div>
+    </div>
     </div>
   )
 }

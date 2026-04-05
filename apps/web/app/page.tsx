@@ -4,50 +4,69 @@ import { useRef } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
-import {
-  ArrowRight, LayoutGrid, FlaskConical, Radio,
-  CheckCircle2, Shield, FileText, Zap,
-} from 'lucide-react'
+import { ArrowRight, CheckCircle2, Shield, FileText, Zap, Clock, Users, AlertTriangle } from 'lucide-react'
 import { PolicyPrism } from '@/components/3d/HeroScene'
 import {
   fadeUp, fadeIn, stagger, staggerSlow,
-  sectionEntry, hoverLift, hoverButton, spring,
+  hoverLift, hoverButton, spring,
   EASE_STANDARD,
 } from '@/lib/motion/presets'
 
+// ── Viewport preset — fire as soon as any pixel enters view ───────────────
+const viewport = { once: true, amount: 0 as const }
+
 // ── Data ──────────────────────────────────────────────────────────────────
 
-const PAYER_LOGOS = ['UnitedHealthcare', 'Cigna', 'Aetna', 'UPMC', 'Blue Shield']
+const PAYERS = ['UnitedHealthcare', 'Cigna', 'Aetna', 'UPMC', 'Blue Shield']
 
-const PAIN_CARDS = [
+const PAIN_POINTS = [
   {
-    q: 'Which plans cover this drug?',
-    a: 'Cross-payer coverage matrix with status, friction score, and effective date.',
-    tag: 'Coverage Matrix',
-    accent: '#2B50FF',
-    bg: '#ECF1FF',
+    icon: Clock,
+    stat: '39×',
+    label: 'prior auth requests per physician annually',
+    source: 'AMA 2025',
   },
   {
-    q: 'What criteria block approval?',
-    a: 'Step therapy, diagnosis gates, prior treatment requirements — all extracted from source policy text.',
-    tag: 'Case Simulator',
-    accent: '#C2410C',
-    bg: '#FFF1EB',
+    icon: AlertTriangle,
+    stat: '94%',
+    label: 'of PA delays stem from incomplete or misread criteria',
+    source: 'AHIP 2024',
   },
   {
-    q: 'What changed this quarter?',
-    a: 'Semantic diff between policy versions. Tightening, loosening, and new requirements shown with citations.',
-    tag: 'Change Radar',
-    accent: '#0F766E',
-    bg: '#EAF8F4',
+    icon: Users,
+    stat: '17 hrs',
+    label: 'avg. time per week staff spend on manual PA research',
+    source: 'MGMA 2024',
   },
 ]
 
-const SHOWCASE_STEPS = [
+const WORKFLOW_STEPS = [
+  {
+    n: '01',
+    title: 'Ingest public payer PDFs',
+    body: 'PrismRx fetches clinical policy bulletins directly from payer portals — Aetna, UHC, Cigna, UPMC, and more.',
+    accent: '#2B50FF',
+  },
+  {
+    n: '02',
+    title: 'Extract & normalize with AI',
+    body: 'An LLM pipeline parses every document and maps criteria into a structured PolicyDNA schema: PA flags, step therapy, diagnosis gates, lab requirements.',
+    accent: '#7C3AED',
+  },
+  {
+    n: '03',
+    title: 'Query, compare, simulate',
+    body: 'Compare coverage across payers, run synthetic approval scenarios, and track policy drift — all backed by exact page and section citations.',
+    accent: '#0F766E',
+  },
+]
+
+const FEATURES = [
   {
     step: '01',
-    heading: 'Compare coverage across all payers',
-    body: 'A single view of every payer\'s stance on a drug family — coverage status, prior auth flag, friction score, and effective date.',
+    tag: 'Coverage Matrix',
+    heading: 'Who covers what — at a glance',
+    body: 'A cross-payer coverage grid for any drug family. Instantly see which payers cover, which require step therapy, and where friction is highest. Every cell is backed by a source citation.',
     image: '/showcase/matrix.png',
     accent: '#2B50FF',
     href: '/matrix',
@@ -55,29 +74,47 @@ const SHOWCASE_STEPS = [
   },
   {
     step: '02',
+    tag: 'Case Simulator',
     heading: 'Surface blockers before the PA request',
-    body: 'Enter a patient scenario — drug, diagnosis, prior treatments, site of care — and instantly see what criteria are unmet and what the fastest approvable path looks like.',
+    body: 'Enter a synthetic patient scenario — drug, diagnosis, prior treatments, care setting — and instantly see unmet criteria, friction scores, and the fastest approvable path across all payers.',
     image: '/showcase/simulator.png',
-    accent: '#C2410C',
+    accent: '#7C3AED',
     href: '/simulate',
     cta: 'Try the Simulator',
   },
   {
     step: '03',
+    tag: 'Change Radar',
     heading: 'Know what changed — and why it matters',
-    body: 'Quarter-over-quarter policy diffs with human-readable explanations. Every change linked back to its source page.',
+    body: 'Quarter-over-quarter policy diffs with human-readable explanations. Each tightening or loosening is flagged with severity, friction delta, and a direct link to the source policy version.',
     image: '/showcase/radar.png',
     accent: '#0F766E',
-    href: '/radar',
+    href: '/changes',
     cta: 'See Change Radar',
   },
 ]
 
 const TRUST_ITEMS = [
-  { icon: Shield,       label: 'Public sources only',      body: 'Every policy pulled from publicly available payer portals. No proprietary data.' },
-  { icon: CheckCircle2, label: 'Citations for every field', body: 'Each extracted criterion traces back to an exact page and section in the source document.' },
-  { icon: FileText,     label: 'Synthetic cases only',     body: 'No real patient data, no PHI, no insurance identifiers are stored or processed.' },
-  { icon: Zap,          label: 'End-to-end pipeline',      body: 'Ingestion → extraction → normalization → comparison → change detection in one system.' },
+  {
+    icon: Shield,
+    label: 'No PHI. Ever.',
+    body: 'PrismRx runs exclusively on publicly available payer policy documents and synthetic cases. Protected Health Information is never ingested, stored, or processed.',
+  },
+  {
+    icon: CheckCircle2,
+    label: 'Every claim cites its source',
+    body: 'Each extracted criterion traces back to an exact page and section reference in the source document — so you can verify every fact independently.',
+  },
+  {
+    icon: FileText,
+    label: 'Public documents only',
+    body: 'All policy data comes directly from payer portals. No proprietary feeds, no scraped databases. If a payer publishes it, PrismRx indexes it.',
+  },
+  {
+    icon: Zap,
+    label: 'End-to-end pipeline',
+    body: 'Ingestion → extraction → normalization → comparison → change detection. One system. No manual copy-paste from PDF to spreadsheet.',
+  },
 ]
 
 const PREVIEW_ROWS = [
@@ -94,12 +131,12 @@ function frictionColor(n: number) {
   return '#0F766E'
 }
 
-// ── Showcase step component ────────────────────────────────────────────────
+// ── Feature showcase (alternating left/right) ──────────────────────────────
 
-function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }) {
+function FeatureShowcase({ f, i }: { f: typeof FEATURES[0]; i: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
-  const imgY = useTransform(scrollYProgress, [0, 1], [-24, 24])
+  const imgY = useTransform(scrollYProgress, [0, 1], [-20, 20])
   const isEven = i % 2 === 0
 
   return (
@@ -108,60 +145,67 @@ function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }
       className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center py-20"
       style={{ borderTop: i > 0 ? '1px solid var(--line-soft)' : 'none' }}
     >
-      {/* Text — alternating sides */}
+      {/* Text */}
       <motion.div
         className={isEven ? 'order-1 lg:order-1' : 'order-1 lg:order-2'}
-        {...sectionEntry}
+        initial="hidden" whileInView="show" viewport={viewport}
         variants={stagger}
       >
         <motion.div variants={fadeUp}>
           <span
-            className="inline-block mb-4 text-mono-meta font-mono"
-            style={{ color: step.accent }}
+            className="inline-block mb-3 text-xs font-semibold rounded-full px-2.5 py-1"
+            style={{ color: f.accent, background: `${f.accent}14` }}
           >
-            {step.step}
+            {f.tag}
           </span>
           <h3
-            className="text-h2 font-sans mb-5"
-            style={{ color: 'var(--ink-strong)', fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.1 }}
+            className="mb-4"
+            style={{
+              fontSize: 'clamp(1.5rem, 2.5vw, 2rem)',
+              fontWeight: 600,
+              color: 'var(--ink-strong)',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.15,
+            }}
           >
-            {step.heading}
+            {f.heading}
           </h3>
           <p
-            className="text-body"
-            style={{ color: 'var(--ink-body)', lineHeight: 1.7, maxWidth: '48ch', marginBottom: '2rem' }}
+            style={{
+              fontSize: 16,
+              color: 'var(--ink-body)',
+              lineHeight: 1.7,
+              maxWidth: '46ch',
+              marginBottom: '1.75rem',
+            }}
           >
-            {step.body}
+            {f.body}
           </p>
-          <Link href={step.href}>
+          <Link href={f.href}>
             <motion.span
-              className="btn-primary inline-flex items-center gap-2 cursor-pointer"
-              style={{ background: step.accent }}
+              className="inline-flex items-center gap-2 cursor-pointer rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
+              style={{ background: f.accent }}
               {...hoverButton}
             >
-              {step.cta}
+              {f.cta}
               <ArrowRight className="w-4 h-4" />
             </motion.span>
           </Link>
         </motion.div>
       </motion.div>
 
-      {/* Image — parallax */}
+      {/* Screenshot in browser frame */}
       <motion.div
         className={`${isEven ? 'order-2 lg:order-2' : 'order-2 lg:order-1'} relative`}
         style={{ y: imgY }}
         initial={{ opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: EASE_STANDARD, delay: 0.1 }}
-        viewport={{ once: true, amount: 0.2 }}
+        viewport={viewport}
       >
-        {/* Browser frame */}
         <div
           className="rounded-2xl overflow-hidden"
-          style={{
-            border: '1px solid var(--line-mid)',
-            boxShadow: '0 32px 80px rgba(15,23,42,0.10)',
-          }}
+          style={{ border: '1px solid var(--line-mid)', boxShadow: '0 32px 80px rgba(15,23,42,0.10)' }}
         >
           {/* Browser chrome */}
           <div
@@ -177,12 +221,12 @@ function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }
               className="flex-1 mx-3 rounded-md px-3 py-1 text-xs font-mono"
               style={{ background: 'var(--bg-surface)', color: 'var(--ink-muted)', border: '1px solid var(--line-soft)' }}
             >
-              app.prismrx.io{step.href}
+              app.prismrx.io{f.href}
             </div>
           </div>
           <Image
-            src={step.image}
-            alt={step.heading}
+            src={f.image}
+            alt={f.heading}
             width={640}
             height={420}
             className="w-full object-cover"
@@ -190,7 +234,7 @@ function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }
           />
         </div>
 
-        {/* Floating accent chip */}
+        {/* Step chip */}
         <motion.div
           className="absolute -bottom-4 -right-4"
           animate={{ y: [0, -6, 0] }}
@@ -199,14 +243,14 @@ function ShowcaseStep({ step, i }: { step: typeof SHOWCASE_STEPS[0]; i: number }
           <span
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm"
             style={{
-              color: step.accent,
+              color: f.accent,
               background: 'var(--bg-surface)',
               border: '1px solid var(--line-mid)',
               fontFamily: 'var(--font-ibm-plex-mono, monospace)',
             }}
           >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: step.accent }} />
-            Step {step.step}
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: f.accent }} />
+            Step {f.step}
           </span>
         </motion.div>
       </motion.div>
@@ -230,28 +274,22 @@ export default function LandingPage() {
           margin: '0 auto',
         }}
       >
-        {/* Policy Prism — positioned right side */}
         <PolicyPrism />
 
-        {/* Hero content — left side */}
         <motion.div
           variants={stagger}
           initial="hidden"
           animate="show"
           className="relative z-10 max-w-xl"
         >
-          {/* Trust source strip */}
+          {/* Payer trust strip */}
           <motion.div variants={fadeUp} className="flex items-center gap-2 mb-8 flex-wrap">
-            {PAYER_LOGOS.map(p => (
+            <span className="text-xs font-mono" style={{ color: 'var(--ink-faint)' }}>Policies indexed from</span>
+            {PAYERS.map(p => (
               <span
                 key={p}
-                className="text-mono-meta font-mono px-2.5 py-1 rounded-full"
-                style={{
-                  color: 'var(--ink-muted)',
-                  background: 'var(--bg-soft)',
-                  border: '1px solid var(--line-soft)',
-                  fontSize: 11,
-                }}
+                className="text-xs font-mono px-2 py-0.5 rounded-full"
+                style={{ color: 'var(--ink-muted)', background: 'var(--bg-soft)', border: '1px solid var(--line-soft)' }}
               >
                 {p}
               </span>
@@ -270,23 +308,22 @@ export default function LandingPage() {
               lineHeight: 1.05,
             }}
           >
-            Drug coverage,
+            Prior auth research
             <br />
             <span
-              className="font-serif-accent"
+              className="font-serif"
               style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
             >
-              finally readable.
+              automated.
             </span>
           </motion.h1>
 
           {/* Subheadline */}
           <motion.p
             variants={fadeUp}
-            className="text-body-l mb-10"
-            style={{ color: 'var(--ink-body)', lineHeight: 1.65, maxWidth: '44ch' }}
+            style={{ fontSize: 18, color: 'var(--ink-body)', lineHeight: 1.65, maxWidth: '46ch', marginBottom: '2.5rem' }}
           >
-            PrismRx ingests public payer policies and turns them into structured, queryable coverage intelligence — with every claim cited back to the source.
+            PrismRx turns complex payer policy PDFs into structured coverage intelligence — compare plans, surface approval blockers, and track policy drift. Every claim cited back to the source.
           </motion.p>
 
           {/* CTAs */}
@@ -300,44 +337,26 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </Link>
-            <Link href="/radar">
+            <Link href="/simulate">
               <motion.span
                 className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
                 {...hoverButton}
               >
-                See What Changed
+                Run a Synthetic Case
               </motion.span>
             </Link>
           </motion.div>
 
-          {/* Stat strip */}
-          <motion.div variants={fadeIn} className="flex flex-wrap gap-6">
+          {/* Business pain stats — no weak payer count */}
+          <motion.div variants={fadeIn} className="flex flex-wrap gap-8">
             {[
-              { v: '5 payers', l: 'indexed' },
-              { v: '25+ policies', l: 'structured' },
-              { v: '39×',   l: 'weekly prior auths / physician*' },
+              { v: '39×', l: 'prior auths per physician / year' },
+              { v: '17 hrs', l: 'weekly per staff on PA research' },
+              { v: '100%', l: 'facts cited to source' },
             ].map(({ v, l }) => (
               <div key={l}>
-                <div
-                  style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    color: 'var(--ink-strong)',
-                    letterSpacing: '-0.025em',
-                  }}
-                >
-                  {v}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--ink-muted)',
-                    marginTop: 2,
-                    fontFamily: 'var(--font-ibm-plex-mono, monospace)',
-                  }}
-                >
-                  {l}
-                </div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.025em' }}>{v}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-muted)', marginTop: 2, fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}>{l}</div>
               </div>
             ))}
           </motion.div>
@@ -349,22 +368,160 @@ export default function LandingPage() {
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <div
-            className="w-px h-10 mx-auto"
-            style={{ background: 'linear-gradient(to bottom, var(--line-mid), transparent)' }}
-          />
+          <div className="w-px h-10 mx-auto" style={{ background: 'linear-gradient(to bottom, var(--line-mid), transparent)' }} />
         </motion.div>
       </section>
 
-      {/* ══ PAIN POINTS ════════════════════════════════════════════════════ */}
+      {/* ══ THE PROBLEM ════════════════════════════════════════════════════ */}
       <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <motion.div className="text-center mb-14" {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">What users actually need</motion.p>
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden" whileInView="show" viewport={viewport}
+            variants={stagger}
+          >
+            <motion.p
+              variants={fadeUp}
+              className="text-xs font-semibold uppercase tracking-widest mb-3"
+              style={{ color: 'var(--ink-muted)' }}
+            >
+              The problem
+            </motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
-                fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
+                fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                fontWeight: 600,
+                color: 'var(--ink-strong)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+              }}
+            >
+              PA criteria live in 40-page PDFs.
+              <br />
+              <span className="font-serif" style={{ fontStyle: 'italic', color: 'var(--accent-coral)' }}>Nobody reads every page.</span>
+            </motion.h2>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-3 gap-5"
+            initial="hidden" whileInView="show" viewport={viewport}
+            variants={stagger}
+          >
+            {PAIN_POINTS.map(({ icon: Icon, stat, label, source }) => (
+              <motion.div
+                key={stat}
+                variants={fadeUp}
+                className="rounded-2xl p-7 flex flex-col gap-3"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--line-mid)',
+                  boxShadow: '0 4px 14px rgba(15,23,42,0.04)',
+                }}
+              >
+                <Icon className="w-5 h-5" style={{ color: 'var(--accent-coral)' }} />
+                <div
+                  style={{
+                    fontSize: 'clamp(2rem, 4vw, 2.75rem)',
+                    fontWeight: 700,
+                    color: 'var(--ink-strong)',
+                    letterSpacing: '-0.04em',
+                    lineHeight: 1,
+                  }}
+                >
+                  {stat}
+                </div>
+                <p style={{ fontSize: 14, color: 'var(--ink-body)', lineHeight: 1.55 }}>{label}</p>
+                <span style={{ fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}>{source}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ══ HOW IT WORKS ═══════════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <motion.div
+            className="text-center mb-14"
+            initial="hidden" whileInView="show" viewport={viewport}
+            variants={stagger}
+          >
+            <motion.p
+              variants={fadeUp}
+              className="text-xs font-semibold uppercase tracking-widest mb-3"
+              style={{ color: 'var(--ink-muted)' }}
+            >
+              How it works
+            </motion.p>
+            <motion.h2
+              variants={fadeUp}
+              style={{
+                fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                fontWeight: 600,
+                color: 'var(--ink-strong)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+              }}
+            >
+              From scattered policy text
+              <br />
+              <span className="font-serif" style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}>to structured access intelligence.</span>
+            </motion.h2>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-3 gap-0"
+            initial="hidden" whileInView="show" viewport={viewport}
+            variants={stagger}
+            style={{ border: '1px solid var(--line-mid)', borderRadius: 20, overflow: 'hidden' }}
+          >
+            {WORKFLOW_STEPS.map((s, i) => (
+              <motion.div
+                key={s.n}
+                variants={fadeUp}
+                className="p-8 flex flex-col gap-4"
+                style={{
+                  background: 'var(--bg-surface)',
+                  borderRight: i < 2 ? '1px solid var(--line-soft)' : 'none',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                    style={{ background: s.accent }}
+                  >
+                    {s.n}
+                  </span>
+                  <div className="h-px flex-1" style={{ background: 'var(--line-soft)' }} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.015em' }}>{s.title}</h3>
+                <p style={{ fontSize: 14, color: 'var(--ink-body)', lineHeight: 1.65 }}>{s.body}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ══ FEATURE SHOWCASE ═══════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <motion.div
+            className="text-center mb-6"
+            initial="hidden" whileInView="show" viewport={viewport}
+            variants={stagger}
+          >
+            <motion.p
+              variants={fadeUp}
+              className="text-xs font-semibold uppercase tracking-widest mb-3"
+              style={{ color: 'var(--ink-muted)' }}
+            >
+              The product
+            </motion.p>
+            <motion.h2
+              variants={fadeUp}
+              style={{
+                fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
                 fontWeight: 600,
                 color: 'var(--ink-strong)',
                 letterSpacing: '-0.03em',
@@ -375,99 +532,25 @@ export default function LandingPage() {
             </motion.h2>
           </motion.div>
 
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-3 gap-5"
-            {...sectionEntry}
-            variants={stagger}
-          >
-            {PAIN_CARDS.map(({ q, a, tag, accent, bg }) => (
-              <motion.div
-                key={tag}
-                variants={fadeUp}
-                {...hoverLift}
-                className="card-policy p-8 flex flex-col gap-5"
-                style={{ paddingTop: '2.5rem' }}
-              >
-                <span
-                  className="inline-block px-2.5 py-1 rounded-full text-label font-semibold"
-                  style={{ color: accent, background: bg }}
-                >
-                  {tag}
-                </span>
-                <h3
-                  style={{
-                    fontSize: '1.1875rem',
-                    fontWeight: 600,
-                    color: 'var(--ink-strong)',
-                    letterSpacing: '-0.015em',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {q}
-                </h3>
-                <p style={{ fontSize: 15, color: 'var(--ink-body)', lineHeight: 1.65 }}>{a}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══ PRODUCT SHOWCASE (Apple-style scrollytelling) ═══════════════════ */}
-      <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <motion.div className="text-center mb-6" {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">How it works</motion.p>
-            <motion.h2
-              variants={fadeUp}
-              style={{
-                fontSize: 'clamp(1.75rem, 3vw, 2.75rem)',
-                fontWeight: 600,
-                color: 'var(--ink-strong)',
-                letterSpacing: '-0.03em',
-                lineHeight: 1.1,
-                marginBottom: '1rem',
-              }}
-            >
-              From scattered policy text
-              <br />
-              <span
-                className="font-serif-accent"
-                style={{ fontStyle: 'italic', color: 'var(--accent-blue)' }}
-              >
-                to structured access intelligence.
-              </span>
-            </motion.h2>
-          </motion.div>
-
-          {/* Scroll-animated product steps */}
-          {SHOWCASE_STEPS.map((step, i) => (
-            <ShowcaseStep key={step.step} step={step} i={i} />
+          {FEATURES.map((f, i) => (
+            <FeatureShowcase key={f.step} f={f} i={i} />
           ))}
         </div>
       </section>
 
-      {/* ══ MATRIX LIVE PREVIEW ══════════════════════════════════════════════ */}
-      <section style={{ background: 'var(--bg-page)', padding: '5rem 1.5rem' }}>
+      {/* ══ LIVE PREVIEW ═══════════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-canvas)', padding: '5rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div
-            className="flex items-end justify-between mb-6 flex-wrap gap-4"
-          >
+          <div className="flex items-end justify-between mb-6 flex-wrap gap-4">
             <div>
-              <p className="overline mb-1">Live data</p>
-              <h2
-                style={{
-                  fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
-                  fontWeight: 600,
-                  color: 'var(--ink-strong)',
-                  letterSpacing: '-0.025em',
-                }}
-              >
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--ink-muted)' }}>Live data</p>
+              <h2 style={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', fontWeight: 600, color: 'var(--ink-strong)', letterSpacing: '-0.025em' }}>
                 Coverage at a glance
               </h2>
             </div>
             <Link
               href="/matrix"
-              className="inline-flex items-center gap-1 text-body-s font-medium"
+              className="inline-flex items-center gap-1 text-sm font-medium"
               style={{ color: 'var(--accent-blue)' }}
             >
               Full matrix <ArrowRight className="w-3.5 h-3.5" />
@@ -475,48 +558,33 @@ export default function LandingPage() {
           </div>
 
           <motion.div
-            className="card overflow-hidden"
-            style={{ padding: 0, borderRadius: 20 }}
-            {...sectionEntry}
-            variants={fadeUp}
+            className="overflow-hidden"
+            style={{ borderRadius: 20, border: '1px solid var(--line-mid)', background: 'var(--bg-surface)' }}
+            initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: EASE_STANDARD }}
+            viewport={viewport}
           >
             <table className="table-base w-full">
               <thead>
                 <tr>
-                  {['Payer', 'Drug', 'Status', 'Friction'].map((h, i) => (
+                  {['Payer', 'Drug', 'Status', 'Friction Score'].map((h, i) => (
                     <th key={h} style={{ textAlign: i === 3 ? 'right' : 'left' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {PREVIEW_ROWS.map((row, i) => (
-                  <tr
-                    key={i}
-                    className="cursor-pointer"
-                    onClick={() => (window.location.href = '/matrix')}
-                  >
+                  <tr key={i} className="cursor-pointer" onClick={() => (window.location.href = '/matrix')}>
                     <td style={{ fontWeight: 500, color: 'var(--ink-strong)' }}>{row.payer}</td>
-                    <td style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)', fontSize: 13, color: 'var(--ink-muted)' }}>
-                      {row.drug}
-                    </td>
+                    <td style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)', fontSize: 13, color: 'var(--ink-muted)' }}>{row.drug}</td>
                     <td>
-                      <span
-                        className="chip"
-                        style={{ color: row.sc, background: row.sb }}
-                      >
+                      <span className="chip" style={{ color: row.sc, background: row.sb }}>
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: row.sc }} />
                         {row.status}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-ibm-plex-mono, monospace)',
-                          fontWeight: 500,
-                          fontSize: 14,
-                          color: frictionColor(row.friction),
-                        }}
-                      >
+                      <span style={{ fontFamily: 'var(--font-ibm-plex-mono, monospace)', fontWeight: 600, fontSize: 14, color: frictionColor(row.friction) }}>
                         {row.friction}
                       </span>
                     </td>
@@ -528,11 +596,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══ TRUST ════════════════════════════════════════════════════════════ */}
-      <section style={{ background: 'var(--bg-canvas)', padding: '6rem 1.5rem' }}>
+      {/* ══ TRUST / COMPLIANCE ═════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-page)', padding: '6rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <motion.div className="text-center mb-14 mx-auto" style={{ maxWidth: '48ch' }} {...sectionEntry} variants={stagger}>
-            <motion.p variants={fadeUp} className="overline mb-3">Methodology</motion.p>
+          <motion.div
+            className="text-center mb-14 mx-auto"
+            style={{ maxWidth: '52ch' }}
+            initial="hidden" whileInView="show" viewport={viewport}
+            variants={stagger}
+          >
+            <motion.p
+              variants={fadeUp}
+              className="text-xs font-semibold uppercase tracking-widest mb-3"
+              style={{ color: 'var(--ink-muted)' }}
+            >
+              Built for healthcare
+            </motion.p>
             <motion.h2
               variants={fadeUp}
               style={{
@@ -544,25 +623,56 @@ export default function LandingPage() {
               }}
             >
               Every claim cites its source.
+              <br />
+              <span className="font-serif" style={{ fontStyle: 'italic', color: 'var(--accent-teal)' }}>No hallucinations. No PHI.</span>
             </motion.h2>
           </motion.div>
+
+          {/* Compliance banner */}
+          <motion.div
+            className="rounded-2xl mb-8 px-6 py-5 flex flex-wrap items-center justify-between gap-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(15,118,110,0.06), rgba(43,80,255,0.05))',
+              border: '1px solid rgba(15,118,110,0.2)',
+            }}
+            initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={viewport}
+          >
+            <div className="flex flex-wrap gap-4">
+              {['Public documents only', 'Synthetic cases only', 'No PHI processed or stored', 'Designed for regulated environments'].map(t => (
+                <span key={t} className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--accent-teal)' }}>
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {t}
+                </span>
+              ))}
+            </div>
+            <Link href="/about" className="text-sm font-medium shrink-0" style={{ color: 'var(--accent-blue)' }}>
+              Full compliance posture →
+            </Link>
+          </motion.div>
+
           <motion.div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-            {...sectionEntry}
+            initial="hidden" whileInView="show" viewport={viewport}
             variants={staggerSlow}
           >
             {TRUST_ITEMS.map(({ icon: Icon, label, body }) => (
-              <motion.div key={label} variants={fadeUp} className="card p-6 flex flex-col gap-4">
+              <motion.div
+                key={label}
+                variants={fadeUp}
+                {...hoverLift}
+                className="p-6 flex flex-col gap-4 rounded-2xl"
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--line-mid)' }}
+              >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'var(--accent-blue-soft)' }}
+                  style={{ background: 'var(--accent-blue-s)' }}
                 >
                   <Icon className="w-5 h-5" style={{ color: 'var(--accent-blue)' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)', marginBottom: 6, letterSpacing: '-0.01em' }}>
-                    {label}
-                  </p>
+                  <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink-strong)', marginBottom: 6, letterSpacing: '-0.01em' }}>{label}</p>
                   <p style={{ fontSize: 14, color: 'var(--ink-muted)', lineHeight: 1.65 }}>{body}</p>
                 </div>
               </motion.div>
@@ -571,16 +681,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══ CLOSING EDITORIAL BAND ═══════════════════════════════════════════ */}
-      <section style={{ background: 'var(--bg-page)', padding: '8rem 1.5rem', textAlign: 'center' }}>
+      {/* ══ FINAL CTA ══════════════════════════════════════════════════════ */}
+      <section style={{ background: 'var(--bg-canvas)', padding: '8rem 1.5rem', textAlign: 'center' }}>
         <motion.div
-          style={{ maxWidth: 760, margin: '0 auto' }}
-          {...sectionEntry}
+          style={{ maxWidth: 700, margin: '0 auto' }}
+          initial="hidden" whileInView="show" viewport={viewport}
           variants={stagger}
         >
           <motion.p
             variants={fadeUp}
-            className="font-serif-accent"
+            className="font-serif"
             style={{
               fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
               fontStyle: 'italic',
@@ -593,14 +703,15 @@ export default function LandingPage() {
             Policies should be readable.<br />
             Access should not depend on guesswork.
           </motion.p>
+
           <motion.p
             variants={fadeUp}
-            className="text-body-l"
-            style={{ color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '44ch', margin: '0 auto 2.5rem' }}
+            style={{ fontSize: 17, color: 'var(--ink-muted)', marginBottom: '2.5rem', maxWidth: '44ch', margin: '0 auto 2.5rem' }}
           >
             Compare coverage. Inspect criteria. Trace evidence. Spot policy drift. All in one workspace.
           </motion.p>
-          <motion.div variants={fadeUp} className="flex flex-wrap justify-center gap-3">
+
+          <motion.div variants={fadeUp} className="flex flex-wrap justify-center gap-3 mb-8">
             <Link href="/matrix">
               <motion.span
                 className="btn-primary inline-flex items-center gap-2 cursor-pointer"
@@ -621,12 +732,23 @@ export default function LandingPage() {
               </motion.span>
             </Link>
           </motion.div>
-          <motion.p
-            variants={fadeIn}
-            style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: '3rem', fontFamily: 'var(--font-ibm-plex-mono, monospace)' }}
-          >
-            * AMA 2025 Prior Authorization report
-          </motion.p>
+
+          <motion.div variants={fadeIn} className="flex flex-wrap justify-center gap-6 pt-4" style={{ borderTop: '1px solid var(--line-soft)' }}>
+            {[
+              { label: 'Built at Innovation Hacks 2026', href: '/about' },
+              { label: 'Anton RX Track · LavaLamps', href: '/about' },
+              { label: 'View source methodology', href: '/sources' },
+            ].map(({ label, href }) => (
+              <Link
+                key={label}
+                href={href}
+                className="text-xs font-mono transition-colors"
+                style={{ color: 'var(--ink-faint)' }}
+              >
+                {label}
+              </Link>
+            ))}
+          </motion.div>
         </motion.div>
       </section>
 

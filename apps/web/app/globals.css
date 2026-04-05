@@ -84,6 +84,12 @@
   --text-label:      13px;
   --text-mono-meta:  12px;
 
+  /* ── Dark workspace aliases (used by matrix / app pages) ────────────── */
+  /* These allow Krish's matrix page to use var(--text-primary) etc.        */
+  --text-primary:   #F1F5F9;   /* slate-100 — headings on dark bg            */
+  --text-secondary: #94A3B8;   /* slate-400 — secondary text on dark bg      */
+  --text-muted:     #64748B;   /* slate-500 — muted labels on dark bg        */
+
   /* ── Easing ─────────────────────────────────────────────────────────── */
   --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft:     cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -127,8 +133,9 @@
 /* ── Utilities ─────────────────────────────────────────────────────────────── */
 @layer utilities {
   /* Font families */
-  .font-serif-accent { font-family: var(--font-serif); }
-  .font-mono-data    { font-family: var(--font-mono);  }
+  .font-serif-accent   { font-family: var(--font-serif); }
+  .font-serif-display  { font-family: var(--font-serif); }
+  .font-mono-data      { font-family: var(--font-mono);  }
 
   /* Gradient text — accent blue */
   .text-gradient-accent {
