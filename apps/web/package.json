@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.16.1",
+    "@aws-sdk/client-bedrock-runtime": "^3.1024.0",
     "@google/generative-ai": "^0.24.1",
     "@langchain/core": "^1.1.39",
     "@langchain/langgraph": "^1.2.7",

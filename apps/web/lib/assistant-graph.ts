@@ -14,23 +14,19 @@ export type AssistantGraphState = typeof AssistantState.State
 
 export type AssistantGraphDeps = {
   parseState: (req: AssistantRequest) => { payer?: string; drug?: string; intent: AssistantIntent }
-  runGreeting: (requestId: string) => Promise<AssistantResponse>
-  runMissing: (
+  runGeneral: (
     requestId: string,
-    reason: 'missing_payer' | 'missing_drug',
+    req: AssistantRequest,
     payer: string | undefined,
     drug: string | undefined,
+    intent: AssistantIntent,
   ) => Promise<AssistantResponse>
-  runExploreCompare: (requestId: string, intent: 'explore_drugs' | 'compare_payers') => Promise<AssistantResponse>
   runCoverage: (requestId: string, req: AssistantRequest, payer: string, drug: string) => Promise<AssistantResponse>
 }
 
-function routeAfterParse(state: AssistantGraphState): 'greeting' | 'explore_compare' | 'missing_response' | 'coverage' {
-  if (state.intent === 'greeting') return 'greeting'
-  if (state.intent === 'explore_drugs' || state.intent === 'compare_payers') return 'explore_compare'
-  if (state.intent === 'missing_drug' || state.intent === 'missing_payer') return 'missing_response'
-  if (!state.payer || !state.drug) return 'missing_response'
-  return 'coverage'
+function routeAfterParse(state: AssistantGraphState): 'general' | 'coverage' {
+  if (state.intent === 'coverage_lookup' && state.payer && state.drug) return 'coverage'
+  return 'general'
 }
 
 export function compileAssistantGraph(deps: AssistantGraphDeps) {
@@ -39,37 +35,18 @@ export function compileAssistantGraph(deps: AssistantGraphDeps) {
       const { payer, drug, intent } = deps.parseState(s.req)
       return { payer, drug, intent }
     })
-    .addNode('greeting', async (s: AssistantGraphState) => ({
-      response: await deps.runGreeting(s.requestId),
+    .addNode('general', async (s: AssistantGraphState) => ({
+      response: await deps.runGeneral(s.requestId, s.req, s.payer, s.drug, s.intent),
     }))
-    .addNode('explore_compare', async (s: AssistantGraphState) => ({
-      response: await deps.runExploreCompare(
-        s.requestId,
-        s.intent as 'explore_drugs' | 'compare_payers',
-      ),
-    }))
-    .addNode('missing_response', async (s: AssistantGraphState) => {
-      const reason: 'missing_payer' | 'missing_drug' =
-        s.intent === 'missing_drug' || s.intent === 'missing_payer'
-          ? s.intent
-          : !s.payer
-            ? 'missing_payer'
-            : 'missing_drug'
-      return { response: await deps.runMissing(s.requestId, reason, s.payer, s.drug) }
-    })
     .addNode('coverage', async (s: AssistantGraphState) => ({
       response: await deps.runCoverage(s.requestId, s.req, s.payer!, s.drug!),
     }))
     .addEdge(START, 'parse')
     .addConditionalEdges('parse', routeAfterParse, {
-      greeting: 'greeting',
-      explore_compare: 'explore_compare',
-      missing_response: 'missing_response',
+      general: 'general',
       coverage: 'coverage',
     })
-    .addEdge('greeting', END)
-    .addEdge('explore_compare', END)
-    .addEdge('missing_response', END)
+    .addEdge('general', END)
     .addEdge('coverage', END)
     .compile()
 }
